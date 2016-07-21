@@ -125,7 +125,6 @@ const char *at_command_raw(struct at *at, const void *data, size_t size);
         if (!_response)                                                     \
             return -1; /* timeout */                                        \
         if (strcmp(_response, "")) {                                        \
-            errno = EINVAL;                                                 \
             return -1;                                                      \
         }                                                                   \
     } while (0)
@@ -139,7 +138,6 @@ const char *at_command_raw(struct at *at, const void *data, size_t size);
         if (!_response)                                                     \
             return -1; /* timeout */                                        \
         if (strcmp(_response, "")) {                                        \
-            errno = EINVAL;                                                 \
             return -1;                                                      \
         }                                                                   \
     } while (0)
@@ -158,7 +156,6 @@ const char *at_command_raw(struct at *at, const void *data, size_t size);
         if (!_response)                                                     \
             return -1; /* timeout */                                        \
         if (sscanf(_response, format, __VA_ARGS__) != _NUMARGS(__VA_ARGS__)) { \
-            errno = EINVAL;                                                 \
             return -1;                                                      \
         }                                                                   \
     } while (0)

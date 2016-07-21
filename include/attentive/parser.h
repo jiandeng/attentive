@@ -9,7 +9,6 @@
 #ifndef ATTENTIVE_PARSER_H
 #define ATTENTIVE_PARSER_H
 
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>

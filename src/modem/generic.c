@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "common.h"
-
+#include "at-common.h"
+#define printf(...)
 
 struct cellular_generic {
     struct cellular dev;
@@ -23,8 +23,8 @@ static const struct cellular_ops generic_ops = {
     .iccid = cellular_op_iccid,
     .creg = cellular_op_creg,
     .rssi = cellular_op_rssi,
-    .clock_gettime = cellular_op_clock_gettime,
-    .clock_settime = cellular_op_clock_settime,
+//    .clock_gettime = cellular_op_clock_gettime,
+//    .clock_settime = cellular_op_clock_settime,
 };
 
 
@@ -32,7 +32,6 @@ struct cellular *cellular_generic_alloc(void)
 {
     struct cellular_generic *modem = malloc(sizeof(struct cellular_generic));
     if (modem == NULL) {
-        errno = ENOMEM;
         return NULL;
     }
 

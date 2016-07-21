@@ -16,6 +16,13 @@
 
 #include <attentive/at.h>
 
+#if defined(__cplusplus) || !defined(__STRICT_ANSI__) || !defined(__ssize_t)
+ /* always defined in C++ and non-strict C for consistency of debug info */
+  typedef int ssize_t;   /* see <stddef.h> */
+  #if !defined(__cplusplus) && defined(__STRICT_ANSI__)
+    #define __ssize_t 1
+  #endif
+#endif
 
 #define CELLULAR_IMEI_LENGTH 15
 #define CELLULAR_MEID_LENGTH 14
@@ -59,12 +66,12 @@ struct cellular_ops {
     /** Get signal strength. */
     int (*rssi)(struct cellular *modem);
 
-    /** Read RTC date and time. Compatible with clock_gettime(). */
-    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);
-    /** Set RTC date and time. Compatible with clock_settime(). */
-    int (*clock_settime)(struct cellular *modem, const struct timespec *ts);
-    /** Get network date and time. */
-    int (*clock_ntptime)(struct cellular *modem, struct timespec *ts);
+//    /** Read RTC date and time. Compatible with clock_gettime(). */
+//    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);
+//    /** Set RTC date and time. Compatible with clock_settime(). */
+//    int (*clock_settime)(struct cellular *modem, const struct timespec *ts);
+//    /** Get network date and time. */
+//    int (*clock_ntptime)(struct cellular *modem, struct timespec *ts);
 
     int (*socket_connect)(struct cellular *modem, int connid, const char *host, uint16_t port);
     ssize_t (*socket_send)(struct cellular *modem, int connid, const void *buffer, size_t amount, int flags);

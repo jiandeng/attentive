@@ -10,9 +10,12 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
-#include "common.h"
+#include "FreeRTOS.h"
+#include "task.h"
+
+#include "at-common.h"
+#define printf(...)
 
 /*
  * SIM800 probably holds the highly esteemed position of the world's worst
@@ -29,7 +32,7 @@
  * We work it all around, but it makes the code unnecessarily complex.
  */
 
-#define SIM800_AUTOBAUD_ATTEMPTS 5
+#define SIM800_AUTOBAUD_ATTEMPTS 10
 #define SIM800_WAITACK_TIMEOUT   40
 #define SIM800_FTP_TIMEOUT       60
 #define SET_TIMEOUT              60
@@ -46,6 +49,12 @@ enum sim800_socket_status {
 #define SIM800_CIPCFG_RETRIES           10
 
 static const char *const sim800_urc_responses[] = {
+    "+BTPAIRING: ",     /* BT pairing request notification */
+    "+BTPAIR: ",        /* BT paired */
+    "+BTCONNECTING: ",  /* BT connecting request notification */
+    "+BTCONNECT: ",     /* BT connected */
+    "+BTDISCONN: ",     /* BT disconnected */
+    "+BTSPPMAN: ",      /* incoming BT SPP data notification */
     "+CIPRXGET: 1,",    /* incoming socket data notification */
     "+FTPGET: 1,",      /* FTP state change notification */
     "+PDP: DEACT",      /* PDP disconnected */
@@ -72,6 +81,8 @@ struct cellular_sim800 {
 
     int ftpget1_status;
     enum sim800_socket_status socket_status[SIM800_NSOCKETS];
+    enum sim800_socket_status spp_status;
+    int spp_connid;
 };
 
 static enum at_response_type scan_line(const char *line, size_t len, void *arg)
@@ -112,8 +123,20 @@ static void handle_urc(const char *line, size_t len, void *arg)
 
     printf("[sim800@%p] urc: %.*s\n", priv, (int) len, line);
 
-    if (sscanf(line, "+FTPGET: 1,%d", &priv->ftpget1_status) == 1)
-        return;
+    if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
+      at_command(priv->dev.at, "AT+BTPAIR=1,1");
+    } else if(!strncmp(line, "+BTCONNECTING: ", strlen("+BTCONNECTING: "))) {
+      if(strstr(line, "\"SPP\"")) {
+        at_command(priv->dev.at, "AT+BTACPT=1");
+      }
+    } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
+      priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
+    } else if(!strncmp(line, "+BTDISCONN: \"Druid_Tech\"", strlen("+BTDISCONN: \"Druid_Tech\""))) {
+      priv->spp_status = SIM800_SOCKET_STATUS_UNKNOWN;
+    } else if (sscanf(line, "+FTPGET: 1,%d", &priv->ftpget1_status) == 1) {
+
+    }
+    return;
 }
 
 static const struct at_callbacks sim800_callbacks = {
@@ -144,16 +167,14 @@ static int sim800_config(struct cellular *modem, const char *option, const char 
         /* Check if the setting has the correct value. */
         char expected[16];
         if (snprintf(expected, sizeof(expected), "+%s: %s", option, value) >= (int) sizeof(expected)) {
-            errno = ENOBUFS;
             return -1;
         }
         if (!strcmp(response, expected))
             return 0;
 
-        sleep(1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    errno = ETIMEDOUT;
     return -1;
 }
 
@@ -162,7 +183,7 @@ static int sim800_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &sim800_callbacks, (void *) modem);
 
-    at_set_timeout(modem->at, 1);
+    at_set_timeout(modem->at, 2);
 
     /* Perform autobauding. */
     for (int i=0; i<SIM800_AUTOBAUD_ATTEMPTS; i++) {
@@ -180,12 +201,16 @@ static int sim800_attach(struct cellular *modem)
 
     /* Initialize modem. */
     static const char *const init_strings[] = {
-        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
+//        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
         "AT+IFC=0,0",                   /* Disable hardware flow control. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
         "AT&W0",                        /* Save configuration. */
+        "AT+BTSPPCFG=\"MC\",1",
+        "AT+BTPAIRCFG=0",
+        "AT+BTSPPGET=1",
+        "AT+BTPOWER=1",
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)
@@ -193,15 +218,15 @@ static int sim800_attach(struct cellular *modem)
 
     /* Configure IP application. */
 
-    /* Switch to multiple connections mode; it's less buggy. */
-    if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
-        return -1;
-    /* Receive data manually. */
-    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CIPCFG_RETRIES) != 0)
-        return -1;
-    /* Enable quick send mode. */
-    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CIPCFG_RETRIES) != 0)
-        return -1;
+//    /* Switch to multiple connections mode; it's less buggy. */
+//    if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
+//        return -1;
+//    /* Receive data manually. */
+//    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CIPCFG_RETRIES) != 0)
+//        return -1;
+//    /* Enable quick send mode. */
+//    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CIPCFG_RETRIES) != 0)
+//        return -1;
 
     return 0;
 }
@@ -212,80 +237,78 @@ static int sim800_detach(struct cellular *modem)
     return 0;
 }
 
-static int sim800_clock_gettime(struct cellular *modem, struct timespec *ts)
-{
-    /* TODO: See CYC-1255. */
-    errno = ENOSYS;
-    return -1;
-}
+//static int sim800_clock_gettime(struct cellular *modem, struct timespec *ts)
+//{
+//    /* TODO: See CYC-1255. */
+//    return -1;
+//}
 
-static int sim800_clock_settime(struct cellular *modem, const struct timespec *ts)
-{
-    /* TODO: See CYC-1255. */
-    errno = ENOSYS;
-    return -1;
-}
+//static int sim800_clock_settime(struct cellular *modem, const struct timespec *ts)
+//{
+//    /* TODO: See CYC-1255. */
+//    return -1;
+//}
 
-static int sim800_clock_ntptime(struct cellular *modem, struct timespec *ts)
-{
-    /* network stuff. */
-    int socket = 2;
+//static int sim800_clock_ntptime(struct cellular *modem, struct timespec *ts)
+//{
+//    /* network stuff. */
+//    int socket = 2;
 
-    if (modem->ops->socket_connect(modem, socket, "time-nw.nist.gov", 37) == 0) {
-        printf("sim800: connect successful\n");
-    } else {
-        perror("sim800: connect failed");
-        goto close_conn;
-    }
+//    if (modem->ops->socket_connect(modem, socket, "time-nw.nist.gov", 37) == 0) {
+//        printf("sim800: connect successful\n");
+//    } else {
+//        perror("sim800: connect failed");
+//        goto close_conn;
+//    }
 
-    int len = 0;
-    char buf[NTP_BUF_SIZE];
-    while ((len = modem->ops->socket_recv(modem, socket, buf, NTP_BUF_SIZE, 0)) >= 0)
-    {
-        if (len > 0)
-        {
-            printf("Received: >\x1b[1m");
-            for (int i = 0; i<len; i++)
-            {
-                printf("%02x", buf[i]);
-            }
-            printf("\x1b[0m<\n");
+//    int len = 0;
+//    char buf[NTP_BUF_SIZE];
+//    while ((len = modem->ops->socket_recv(modem, socket, buf, NTP_BUF_SIZE, 0)) >= 0)
+//    {
+//        if (len > 0)
+//        {
+//            printf("Received: >\x1b[1m");
+//            for (int i = 0; i<len; i++)
+//            {
+//                printf("%02x", buf[i]);
+//            }
+//            printf("\x1b[0m<\n");
 
-            if (len == 4)
-            {
-                ts->tv_sec = 0;
-                for (int i = 0; i<4; i++)
-                {
-                    ts->tv_sec = (long int)buf[i] + ts->tv_sec*256;
-                }
-                printf("sim800: catched UTC timestamp -> %d\n", ts->tv_sec);
-                ts->tv_sec -= 2208988800L;        //UTC to UNIX time conversion
-                printf("sim800: final UNIX timestamp -> %d\n", ts->tv_sec);
-                goto close_conn;
-            }
+//            if (len == 4)
+//            {
+//                ts->tv_sec = 0;
+//                for (int i = 0; i<4; i++)
+//                {
+//                    ts->tv_sec = (long int)buf[i] + ts->tv_sec*256;
+//                }
+//                printf("sim800: catched UTC timestamp -> %d\n", ts->tv_sec);
+//                ts->tv_sec -= 2208988800L;        //UTC to UNIX time conversion
+//                printf("sim800: final UNIX timestamp -> %d\n", ts->tv_sec);
+//                goto close_conn;
+//            }
 
-            len = 0;
-        }
-        else
-            sleep(1);
-    }
+//            len = 0;
+//        }
+//        else
+//            vTaskDelay(pdMS_TO_TICKS(1000));
+//    }
 
-#if 0
-    // FIXME: It's wrong. It should be removed
-    while (modem->ops->socket_recv(modem, socket, NULL, 1, 0) != 0)
-    {} //flush
-#endif
+//#if 0
+//    // FIXME: It's wrong. It should be removed
+//    while (modem->ops->socket_recv(modem, socket, NULL, 1, 0) != 0)
+//    {} //flush
+//#endif
 
-close_conn:
-    if (modem->ops->socket_close(modem, socket) == 0)
-    {
-        printf("sim800: close successful\n");
-    } else {
-        perror("sim800: close");
-    }
+//close_conn:
+//    if (modem->ops->socket_close(modem, socket) == 0)
+//    {
+//        printf("sim800: close successful\n");
+//    } else {
+//        perror("sim800: close");
+//    }
 
-    return 0;
-}
+//    return 0;
+//}
 
 static enum at_response_type scanner_cipstatus(const char *line, size_t len, void *arg)
 {
@@ -317,7 +340,6 @@ static int sim800_ipstatus(struct cellular *modem)
 
     const char *state = strstr(response, "STATE: ");
     if (!state) {
-        errno = EPROTO;
         return -1;
     }
     state += strlen("STATE: ");
@@ -326,7 +348,6 @@ static int sim800_ipstatus(struct cellular *modem)
     if (!strncmp(state, "IP PROCESSING", strlen("IP PROCESSING")))
         return 0;
 
-    errno = ENETDOWN;
     return -1;
 }
 
@@ -395,23 +416,25 @@ static int sim800_socket_connect(struct cellular *modem, int connid, const char 
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
-    /* Send connection request. */
-    at_set_timeout(modem->at, SET_TIMEOUT);
-    priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
-    cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
+    if(connid == SIM800_NSOCKETS) {
+      return !(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status);
+    } else if(connid < SIM800_NSOCKETS) {
+      /* Send connection request. */
+      at_set_timeout(modem->at, SET_TIMEOUT);
+      priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
+      cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
 
-    /* Wait for socket status URC. */
-    for (int i=0; i<SIM800_CONNECT_TIMEOUT; i++) {
-        if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
-            return 0;
-        } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
-            errno = ECONNABORTED;
-            return -1;
-        }
-        sleep(1);
+      /* Wait for socket status URC. */
+      for (int i=0; i<SIM800_CONNECT_TIMEOUT; i++) {
+          if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
+              return 0;
+          } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
+              return -1;
+          }
+          vTaskDelay(pdMS_TO_TICKS(1000));
+      }
     }
 
-    errno = ETIMEDOUT;
     return -1;
 }
 
@@ -437,16 +460,37 @@ static enum at_response_type scanner_cipsend(const char *line, size_t len, void 
 
 static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void *buffer, size_t amount, int flags)
 {
+    struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
     (void) flags;
+    if(connid == SIM800_NSOCKETS) {
+      if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
+        return -1;
+      }
+      amount = amount > 1024 ? 1024 : amount;
+      /* Request transmission. */
+      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_expect_dataprompt(modem->at);
+      at_command_simple(modem->at, "AT+BTSPPSEND=%d,%zu", priv->spp_connid, amount);
 
-    /* Request transmission. */
-    at_set_timeout(modem->at, SET_TIMEOUT);
-    at_expect_dataprompt(modem->at);
-    at_command_simple(modem->at, "AT+CIPSEND=%d,%zu", connid, amount);
+      /* Send raw data. */
+      at_set_command_scanner(modem->at, scanner_cipsend);
+      at_command_raw_simple(modem->at, buffer, amount);
+    } else if(connid < SIM800_NSOCKETS) {
+      if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
+        return -1;
+      }
+      amount = amount > 1460 ? 1460 : amount;
+      /* Request transmission. */
+      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_expect_dataprompt(modem->at);
+      at_command_simple(modem->at, "AT+CIPSEND=%d,%zu", connid, amount);
 
-    /* Send raw data. */
-    at_set_command_scanner(modem->at, scanner_cipsend);
-    at_command_raw_simple(modem->at, buffer, amount);
+      /* Send raw data. */
+      at_set_command_scanner(modem->at, scanner_cipsend);
+      at_command_raw_simple(modem->at, buffer, amount);
+    } else {
+      return 0;
+    }
 
     return amount;
 }
@@ -458,61 +502,123 @@ static enum at_response_type scanner_ciprxget(const char *line, size_t len, void
 
     int requested, confirmed;
     if (sscanf(line, "+CIPRXGET: 2,%*d,%d,%d", &requested, &confirmed) == 2)
-        if (requested > 0)
-            return AT_RESPONSE_RAWDATA_FOLLOWS(requested);
+        if (confirmed > 0)
+            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
+static enum at_response_type scanner_btsppget(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    int confirmed;
+    if (sscanf(line, "+BTSPPGET: %*d,%d", &confirmed) == 1)
+        if (confirmed > 0)
+            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
 
     return AT_RESPONSE_UNKNOWN;
 }
 
 static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buffer, size_t length, int flags)
 {
+    struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
     (void) flags;
 
     int cnt = 0;
     // TODO its dumb and exceptions should be handled in other right way
     // FIXME: It has to be changed. Leave for now
-    char tries = 127;
-    while ( (cnt < (int) length) && tries-- ){
-        int chunk = (int) length - cnt;
-        /* Limit read size to avoid overflowing AT response buffer. */
-        if (chunk > 128)
-            chunk = 128;
+    if(connid == SIM800_NSOCKETS) {
+      if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
+        return -1;
+      }
+      char tries = 20;
+      while ( (cnt < (int) length) && tries-- ) {
+          int chunk = (int) length - cnt;
+          /* Limit read size to avoid overflowing AT response buffer. */
+          chunk = chunk > 480 ? 480 : chunk;
 
-        /* Perform the read. */
-        at_set_timeout(modem->at, SET_TIMEOUT);
-        at_set_command_scanner(modem->at, scanner_ciprxget);
-        const char *response = at_command(modem->at, "AT+CIPRXGET=2,%d,%d", connid, chunk);
-        if (response == NULL)
-            return -1;
+          /* Perform the read. */
+          at_set_timeout(modem->at, SET_TIMEOUT);
+          at_set_command_scanner(modem->at, scanner_btsppget);
+          const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
+          if (response == NULL)
+              return -1;
 
-        /* Find the header line. */
-        int requested, confirmed;
-        // TODO: 
-        // 1. connid is not checked
-        // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
-        // then wierd things can happen. see memcpy 
-        // requested should be equal to chunk
-        // confirmed is that what can be read
-        at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &requested, &confirmed);
+          /* Find the header line. */
+          int confirmed;
+          // TODO:
+          // 1. connid is not checked
+          // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
+          // then wierd things can happen. see memcpy
+          // requested should be equal to chunk
+          // confirmed is that what can be read
+          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &confirmed);
 
-        /* Bail out if we're out of data. */
-        /* FIXME: We should maybe block until we receive something? */
-        if (requested == 0)
-            break;
+          /* Bail out if we're out of data. */
+          /* FIXME: We should maybe block until we receive something? */
+          if (confirmed == 0)
+              break;
 
-        /* Locate the payload. */
-        /* TODO: what if no \n is in input stream? 
-         * should use strnchr at least */
-        const char *data = strchr(response, '\n');
-        if (data == NULL) {
-            errno = EPROTO;
-            return -1;
-        }
-        data += 1;
+          /* Locate the payload. */
+          /* TODO: what if no \n is in input stream?
+           * should use strnchr at least */
+          char *data = strchr(response, ',');
+          data = strchr(data, ',');
+          if (data++ == NULL) {
+              return -1;
+          }
 
-        /* Copy payload to result buffer. */
-        memcpy((char *)buffer + cnt, data, requested);
-        cnt += requested;
+          /* Copy payload to result buffer. */
+          memcpy((char *)buffer + cnt, data, confirmed);
+          cnt += confirmed;
+      }
+    }
+    else if(connid < SIM800_NSOCKETS) {
+      if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
+        return -1;
+      }
+      char tries = 20;
+      while ( (cnt < (int) length) && tries-- ){
+          int chunk = (int) length - cnt;
+          /* Limit read size to avoid overflowing AT response buffer. */
+          chunk = chunk > 480 ? 480 : chunk;
+
+          /* Perform the read. */
+          at_set_timeout(modem->at, SET_TIMEOUT);
+          at_set_command_scanner(modem->at, scanner_ciprxget);
+          const char *response = at_command(modem->at, "AT+CIPRXGET=2,%d,%d", connid, chunk);
+          if (response == NULL)
+              return -1;
+
+          /* Find the header line. */
+          int requested, confirmed;
+          // TODO:
+          // 1. connid is not checked
+          // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
+          // then wierd things can happen. see memcpy
+          // requested should be equal to chunk
+          // confirmed is that what can be read
+          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &requested, &confirmed);
+
+          /* Bail out if we're out of data. */
+          /* FIXME: We should maybe block until we receive something? */
+          if (confirmed == 0)
+              break;
+
+          /* Locate the payload. */
+          /* TODO: what if no \n is in input stream?
+           * should use strnchr at least */
+          const char *data = strchr(response, '\n');
+          if (data++ == NULL) {
+              return -1;
+          }
+
+          /* Copy payload to result buffer. */
+          memcpy((char *)buffer + cnt, data, confirmed);
+          cnt += confirmed;
+      }
     }
 
     return cnt;
@@ -521,22 +627,23 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
 static int sim800_socket_waitack(struct cellular *modem, int connid)
 {
     const char *response;
+    if(connid == SIM800_NSOCKETS) {
+      return 0;
+    } else if(connid < SIM800_NSOCKETS) {
+      at_set_timeout(modem->at, 5);
+      for (int i=0; i<SIM800_WAITACK_TIMEOUT; i++) {
+          /* Read number of bytes waiting. */
+          int nacklen;
+          response = at_command(modem->at, "AT+CIPACK=%d", connid);
+          at_simple_scanf(response, "+CIPACK: %*d,%*d,%d", &nacklen);
 
-    at_set_timeout(modem->at, 5);
-    for (int i=0; i<SIM800_WAITACK_TIMEOUT; i++) {
-        /* Read number of bytes waiting. */
-        int nacklen;
-        response = at_command(modem->at, "AT+CIPACK=%d", connid);
-        at_simple_scanf(response, "+CIPACK: %*d,%*d,%d", &nacklen);
+          /* Return if all bytes were acknowledged. */
+          if (nacklen == 0)
+              return 0;
 
-        /* Return if all bytes were acknowledged. */
-        if (nacklen == 0)
-            return 0;
-
-        sleep(1);
+          vTaskDelay(pdMS_TO_TICKS(1000));
+      }
     }
-
-    errno = ETIMEDOUT;
     return -1;
 }
 
@@ -554,10 +661,15 @@ static enum at_response_type scanner_cipclose(const char *line, size_t len, void
 
 int sim800_socket_close(struct cellular *modem, int connid)
 {
-    at_set_timeout(modem->at, SET_TIMEOUT);
-    at_set_command_scanner(modem->at, scanner_cipclose);
-    at_command_simple(modem->at, "AT+CIPCLOSE=%d", connid);
+    struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
+    if(connid == SIM800_NSOCKETS) {
+      at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);
+    } else if(connid < SIM800_NSOCKETS) {
+      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_set_command_scanner(modem->at, scanner_cipclose);
+      at_command_simple(modem->at, "AT+CIPCLOSE=%d", connid);
+    }
     return 0;
 }
 
@@ -593,14 +705,12 @@ static int sim800_ftp_get(struct cellular *modem, const char *filename)
             return 0;
 
         if (priv->ftpget1_status != -1) {
-            errno = ECONNABORTED;
             return -1;
         }
 
-        sleep(1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    errno = ETIMEDOUT;
     return -1;
 }
 
@@ -635,17 +745,15 @@ retry:
         if (cnflength == 0) {
             /* Bail out on timeout. */
             if (++retries >= SIM800_FTP_TIMEOUT) {
-                errno = ETIMEDOUT;
                 return -1;
             }
-            sleep(1);
+            vTaskDelay(pdMS_TO_TICKS(1000));
             goto retry;
         }
 
         /* Locate the payload. */
         const char *data = strchr(response, '\n');
         if (data == NULL) {
-            errno = EPROTO;
             return -1;
         }
         data += 1;
@@ -657,7 +765,6 @@ retry:
         /* Transfer finished. */
         return 0;
     } else {
-        errno = EPROTO;
         return -1;
     }
 }
@@ -681,9 +788,9 @@ static const struct cellular_ops sim800_ops = {
     .iccid = cellular_op_iccid,
     .creg = cellular_op_creg,
     .rssi = cellular_op_rssi,
-    .clock_gettime = sim800_clock_gettime,
-    .clock_settime = sim800_clock_settime,
-    .clock_ntptime = sim800_clock_ntptime,
+//    .clock_gettime = sim800_clock_gettime,
+//    .clock_settime = sim800_clock_settime,
+//    .clock_ntptime = sim800_clock_ntptime,
     .socket_connect = sim800_socket_connect,
     .socket_send = sim800_socket_send,
     .socket_recv = sim800_socket_recv,
@@ -699,7 +806,6 @@ struct cellular *cellular_sim800_alloc(void)
 {
     struct cellular_sim800 *modem = malloc(sizeof(struct cellular_sim800));
     if (modem == NULL) {
-        errno = ENOMEM;
         return NULL;
     }
     memset(modem, 0, sizeof(*modem));

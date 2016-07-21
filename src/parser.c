@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#define printf(...)
 
 enum at_parser_state {
     STATE_IDLE,
@@ -58,7 +59,6 @@ struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, size_t 
     /* Allocate parser struct. */
     struct at_parser *parser = (struct at_parser *) malloc(sizeof(struct at_parser));
     if (parser == NULL) {
-        errno = ENOMEM;
         return NULL;
     }
 
@@ -66,7 +66,6 @@ struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, size_t 
     parser->buf = malloc(bufsize);
     if (parser->buf == NULL) {
         free(parser);
-        errno = ENOMEM;
         return NULL;
     }
     parser->cbs = cbs;

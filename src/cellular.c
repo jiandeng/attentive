@@ -8,7 +8,8 @@
 
 #include <attentive/cellular.h>
 
-#include "modem/common.h"
+#include "modem/at-common.h"
+#define printf(...)
 
 
 int cellular_attach(struct cellular *modem, struct at *at, const char *apn)

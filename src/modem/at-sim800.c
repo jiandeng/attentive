@@ -36,6 +36,7 @@
 #define SIM800_WAITACK_TIMEOUT   40
 #define SIM800_FTP_TIMEOUT       60
 #define SET_TIMEOUT              60
+#define GET_TIMEOUT              2
 #define NTP_BUF_SIZE             4
 
 enum sim800_socket_status {
@@ -516,7 +517,7 @@ static enum at_response_type scanner_btsppget(const char *line, size_t len, void
     int confirmed;
     if (sscanf(line, "+BTSPPGET: %*d,%d", &confirmed) == 1)
         if (confirmed > 0)
-            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
+            return AT_RESPONSE_INTERMEDIATE;
 
     return AT_RESPONSE_UNKNOWN;
 }
@@ -533,14 +534,14 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
-      char tries = 20;
+      char tries = 4;
       while ( (cnt < (int) length) && tries-- ) {
           int chunk = (int) length - cnt;
           /* Limit read size to avoid overflowing AT response buffer. */
           chunk = chunk > 480 ? 480 : chunk;
 
           /* Perform the read. */
-          at_set_timeout(modem->at, SET_TIMEOUT);
+          at_set_timeout(modem->at, GET_TIMEOUT);
           at_set_command_scanner(modem->at, scanner_btsppget);
           const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
           if (response == NULL)
@@ -554,7 +555,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &confirmed);
+          at_simple_scanf(response, "+BTSPPGET: %*d,%d,", &confirmed);
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
@@ -565,6 +566,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           /* TODO: what if no \n is in input stream?
            * should use strnchr at least */
           char *data = strchr(response, ',');
+          data++;
           data = strchr(data, ',');
           if (data++ == NULL) {
               return -1;
@@ -579,7 +581,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
-      char tries = 20;
+      char tries = 4;
       while ( (cnt < (int) length) && tries-- ){
           int chunk = (int) length - cnt;
           /* Limit read size to avoid overflowing AT response buffer. */

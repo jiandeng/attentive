@@ -78,6 +78,14 @@ void at_set_callbacks(struct at *at, const struct at_callbacks *cbs, void *arg);
 void at_set_command_scanner(struct at *at, at_line_scanner_t scanner);
 
 /**
+ * Set custom per-character handler for the next command.
+ *
+ * @param at AT channel instance.
+ * @param handler Character handler.
+ */
+void at_set_character_handler(struct at *at, at_character_handler_t handler);
+
+/**
  * Expect "> " dataprompt as a response for the next command.
  *
  * @param at AT channel instance.

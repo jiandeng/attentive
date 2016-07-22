@@ -22,6 +22,7 @@ enum at_parser_state {
 
 struct at_parser {
     const struct at_parser_callbacks *cbs;
+    at_character_handler_t character_handler;
     void *priv;
 
     enum at_parser_state state;
@@ -85,6 +86,12 @@ void at_parser_reset(struct at_parser *parser)
     parser->buf_used = 0;
     parser->buf_current = 0;
     parser->data_left = 0;
+    parser->character_handler = NULL;
+}
+
+void at_parser_set_character_handler(struct at_parser *parser, at_character_handler_t handler)
+{
+    parser->character_handler = handler;
 }
 
 void at_parser_expect_dataprompt(struct at_parser *parser)
@@ -272,6 +279,13 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                 if ((ch != '\r') && (ch != '\n')) {
                     /* Append the character if it's not a newline. */
                     parser_append(parser, ch);
+                }
+
+                /* Handle a single character. */
+                if (parser->character_handler) {
+                    ch = parser->character_handler(ch, parser->buf + parser->buf_current,
+                                                    parser->buf_used - parser->buf_current,
+                                                    parser->priv);
                 }
 
                 /* Handle full lines. */

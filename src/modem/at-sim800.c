@@ -517,9 +517,27 @@ static enum at_response_type scanner_btsppget(const char *line, size_t len, void
     int confirmed;
     if (sscanf(line, "+BTSPPGET: %*d,%d", &confirmed) == 1)
         if (confirmed > 0)
-            return AT_RESPONSE_INTERMEDIATE;
+            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
 
     return AT_RESPONSE_UNKNOWN;
+}
+
+static char character_handler_btsppget(char ch, char *line, size_t len, void *arg) {
+    struct at *priv = (struct at *) arg;
+    int confirmed;
+
+    if(ch == ',') {
+      line[len] = '\0';
+      if (sscanf(line, "+BTSPPGET: %*d,%d,", &confirmed) == 1) {
+        ch = '\n';
+      }
+    }
+
+    if(len > 0 && ch == '\n') {
+      at_set_character_handler(priv, NULL);
+    }
+
+    return ch;
 }
 
 static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buffer, size_t length, int flags)
@@ -543,6 +561,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           /* Perform the read. */
           at_set_timeout(modem->at, GET_TIMEOUT);
           at_set_command_scanner(modem->at, scanner_btsppget);
+          at_set_character_handler(modem->at, character_handler_btsppget);
           const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
           if (response == NULL)
               return -1;
@@ -555,7 +574,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+BTSPPGET: %*d,%d,", &confirmed);
+          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &confirmed);
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
@@ -565,9 +584,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           /* Locate the payload. */
           /* TODO: what if no \n is in input stream?
            * should use strnchr at least */
-          char *data = strchr(response, ',');
-          data++;
-          data = strchr(data, ',');
+          const char *data = strchr(response, '\n');
           if (data++ == NULL) {
               return -1;
           }

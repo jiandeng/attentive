@@ -169,6 +169,11 @@ void at_set_timeout(struct at *at, int timeout)
     priv->timeout = timeout;
 }
 
+void at_set_character_handler(struct at *at, at_character_handler_t handler)
+{
+    at_parser_set_character_handler(at->parser, handler);
+}
+
 void at_expect_dataprompt(struct at *at)
 {
     at_parser_expect_dataprompt(at->parser);

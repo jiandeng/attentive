@@ -264,6 +264,54 @@ const char *at_command_raw(struct at *at, const void *data, size_t size)
     return _at_command(priv, data, size);
 }
 
+bool _at_send(struct at_freertos *priv, const void *data, size_t size)
+{
+    /* Bail out if the channel is closing or closed. */
+    if (!priv->open) {
+        /*xSemaphoreGive(priv->xMutex);*/
+        return false;
+    }
+
+    /* Send the command. */
+    // FIXME: handle interrupts, short writes, errors, etc.
+    FreeRTOS_write(priv->xUART, data, size);
+    return true;
+}
+
+bool at_send(struct at *at, const char *format, ...)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    /* Build command string. */
+    va_list ap;
+    va_start(ap, format);
+    char line[AT_COMMAND_LENGTH];
+    int len = vsnprintf(line, sizeof(line)-1, format, ap);
+    va_end(ap);
+
+    /* Bail out if we run out of space. */
+    if (len >= (int)(sizeof(line)-1)) {
+        return false;
+    }
+
+    printf("> %s\n", line);
+
+    /* Append modem-style newline. */
+    line[len++] = '\r';
+
+    /* Send the command. */
+    return _at_send(priv, line, len);
+}
+
+bool at_send_raw(struct at *at, const void *data, size_t size)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    printf("> [%zu bytes]\n", size);
+
+    return _at_send(priv, data, size);
+}
+
 void at_reader_thread(void *arg)
 {
     struct at_freertos *priv = (struct at_freertos *)arg;

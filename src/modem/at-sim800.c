@@ -35,7 +35,7 @@
 #define SIM800_AUTOBAUD_ATTEMPTS 10
 #define SIM800_WAITACK_TIMEOUT   40
 #define SIM800_FTP_TIMEOUT       60
-#define SET_TIMEOUT              60
+#define SET_TIMEOUT              10
 #define GET_TIMEOUT              2
 #define NTP_BUF_SIZE             4
 
@@ -43,13 +43,16 @@ enum sim800_socket_status {
     SIM800_SOCKET_STATUS_ERROR = -1,
     SIM800_SOCKET_STATUS_UNKNOWN = 0,
     SIM800_SOCKET_STATUS_CONNECTED = 1,
+    SIM800_SOCKET_STATUS_PENDING = 2,
 };
 
 #define SIM800_NSOCKETS                 6
 #define SIM800_CONNECT_TIMEOUT          20
 #define SIM800_CIPCFG_RETRIES           10
 
+static char spp_recv_buf[1024] = {0};
 static const char *const sim800_urc_responses[] = {
+    "=>",               /* BT data received via the spp channel */
     "+BTPAIRING: ",     /* BT pairing request notification */
     "+BTPAIR: ",        /* BT paired */
     "+BTCONNECTING: ",  /* BT connecting request notification */
@@ -123,20 +126,24 @@ static void handle_urc(const char *line, size_t len, void *arg)
     struct cellular_sim800 *priv = arg;
 
     printf("[sim800@%p] urc: %.*s\n", priv, (int) len, line);
+    if(sscanf(line, "=>%s", &spp_recv_buf[0]) == 1) {
 
-    if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
-      at_command(priv->dev.at, "AT+BTPAIR=1,1");
+    } else if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
+      at_send(priv->dev.at, "AT+BTPAIR=1,1");
     } else if(!strncmp(line, "+BTCONNECTING: ", strlen("+BTCONNECTING: "))) {
       if(strstr(line, "\"SPP\"")) {
-        at_command(priv->dev.at, "AT+BTACPT=1");
+        at_send(priv->dev.at, "AT+BTACPT=1");
       }
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
+      priv->spp_status = SIM800_SOCKET_STATUS_PENDING;
+    } else if(!strncmp(line, "CONNECT", strlen("CONNET"))) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
     } else if(!strncmp(line, "+BTDISCONN: \"Druid_Tech\"", strlen("+BTDISCONN: \"Druid_Tech\""))) {
       priv->spp_status = SIM800_SOCKET_STATUS_UNKNOWN;
     } else if (sscanf(line, "+FTPGET: 1,%d", &priv->ftpget1_status) == 1) {
 
     }
+
     return;
 }
 
@@ -208,7 +215,7 @@ static int sim800_attach(struct cellular *modem)
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
         "AT&W0",                        /* Save configuration. */
-        "AT+BTSPPCFG=\"MC\",1",
+        "AT+BTSPPCFG=\"TT\",1",
         "AT+BTPAIRCFG=0",
         "AT+BTSPPGET=1",
         "AT+BTPOWER=1",
@@ -467,15 +474,12 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
-      amount = amount > 1024 ? 1024 : amount;
+      if(amount > 1024) {
+        return -1;
+      }
       /* Request transmission. */
-      at_set_timeout(modem->at, SET_TIMEOUT);
-      at_expect_dataprompt(modem->at);
-      at_command_simple(modem->at, "AT+BTSPPSEND=%d,%zu", priv->spp_connid, amount);
-
-      /* Send raw data. */
-      at_set_command_scanner(modem->at, scanner_cipsend);
-      at_command_raw_simple(modem->at, buffer, amount);
+      at_send_raw(modem->at, buffer, amount);
+      return amount;
     } else if(connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
@@ -509,37 +513,6 @@ static enum at_response_type scanner_ciprxget(const char *line, size_t len, void
     return AT_RESPONSE_UNKNOWN;
 }
 
-static enum at_response_type scanner_btsppget(const char *line, size_t len, void *arg)
-{
-    (void) len;
-    (void) arg;
-
-    int confirmed;
-    if (sscanf(line, "+BTSPPGET: %*d,%d", &confirmed) == 1)
-        if (confirmed > 0)
-            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
-
-    return AT_RESPONSE_UNKNOWN;
-}
-
-static char character_handler_btsppget(char ch, char *line, size_t len, void *arg) {
-    struct at *priv = (struct at *) arg;
-    int confirmed;
-
-    if(ch == ',') {
-      line[len] = '\0';
-      if (sscanf(line, "+BTSPPGET: %*d,%d,", &confirmed) == 1) {
-        ch = '\n';
-      }
-    }
-
-    if(len > 0 && ch == '\n') {
-      at_set_character_handler(priv, NULL);
-    }
-
-    return ch;
-}
-
 static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buffer, size_t length, int flags)
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
@@ -552,46 +525,13 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
-      char tries = 4;
-      while ( (cnt < (int) length) && tries-- ) {
-          int chunk = (int) length - cnt;
-          /* Limit read size to avoid overflowing AT response buffer. */
-          chunk = chunk > 480 ? 480 : chunk;
 
-          /* Perform the read. */
-          at_set_timeout(modem->at, GET_TIMEOUT);
-          at_set_command_scanner(modem->at, scanner_btsppget);
-          at_set_character_handler(modem->at, character_handler_btsppget);
-          const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
-          if (response == NULL)
-              return -1;
-
-          /* Find the header line. */
-          int confirmed;
-          // TODO:
-          // 1. connid is not checked
-          // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
-          // then wierd things can happen. see memcpy
-          // requested should be equal to chunk
-          // confirmed is that what can be read
-          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &confirmed);
-
-          /* Bail out if we're out of data. */
-          /* FIXME: We should maybe block until we receive something? */
-          if (confirmed == 0)
-              break;
-
-          /* Locate the payload. */
-          /* TODO: what if no \n is in input stream?
-           * should use strnchr at least */
-          const char *data = strchr(response, '\n');
-          if (data++ == NULL) {
-              return -1;
-          }
-
-          /* Copy payload to result buffer. */
-          memcpy((char *)buffer + cnt, data, confirmed);
-          cnt += confirmed;
+      /* Copy payload to result buffer. */
+      cnt = strlen(spp_recv_buf);
+      if(cnt) {
+          memcpy(buffer, spp_recv_buf, cnt);
+          *(((char*)buffer) + cnt) = '\0';
+          spp_recv_buf[0] = '\0';
       }
     }
     else if(connid < SIM800_NSOCKETS) {

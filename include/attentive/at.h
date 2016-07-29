@@ -125,6 +125,26 @@ const char *at_command(struct at *at, const char *format, ...);
 const char *at_command_raw(struct at *at, const void *data, size_t size);
 
 /**
+ * Send an AT command. Accepts printf-compatible format and arguments.
+ *
+ * @param at AT channel instance.
+ * @param format printf-comaptible format.
+ * @returns True if success.
+ */
+__attribute__ ((format (printf, 2, 3)))
+bool at_send(struct at *at, const char *format, ...);
+
+/**
+ * Send raw data over the AT channel.
+ *
+ * @param at AT channel instance.
+ * @param data Raw data to send.
+ * @param size Data size in bytes.
+ * @returns True if success.
+ */
+bool at_send_raw(struct at *at, const void *data, size_t size);
+
+/**
  * Send an AT command and return -1 if it doesn't return OK.
  */
 #define at_command_simple(at, cmd...)                                       \

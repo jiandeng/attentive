@@ -35,7 +35,7 @@
 #define SIM800_AUTOBAUD_ATTEMPTS 10
 #define SIM800_WAITACK_TIMEOUT   40
 #define SIM800_FTP_TIMEOUT       60
-#define SET_TIMEOUT              60
+#define SET_TIMEOUT              10
 #define GET_TIMEOUT              2
 #define NTP_BUF_SIZE             4
 
@@ -125,10 +125,10 @@ static void handle_urc(const char *line, size_t len, void *arg)
     printf("[sim800@%p] urc: %.*s\n", priv, (int) len, line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
-      at_command(priv->dev.at, "AT+BTPAIR=1,1");
+      at_send(priv->dev.at, "AT+BTPAIR=1,1");
     } else if(!strncmp(line, "+BTCONNECTING: ", strlen("+BTCONNECTING: "))) {
       if(strstr(line, "\"SPP\"")) {
-        at_command(priv->dev.at, "AT+BTACPT=1");
+        at_send(priv->dev.at, "AT+BTACPT=1");
       }
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;

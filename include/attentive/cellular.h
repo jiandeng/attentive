@@ -60,6 +60,8 @@ struct cellular_ops {
     int (*meid)(struct cellular *modem, char *buf, size_t len);
     /** Read SIM serial number (ICCID). */
     int (*iccid)(struct cellular *modem, char *iccid, size_t len);
+    /** Read International Mobile SubscriberIdentification Number (IMSI). */
+    int (*imsi)(struct cellular *modem, char *imsi, size_t len);
 
     /** Get network registration status. */
     int (*creg)(struct cellular *modem);

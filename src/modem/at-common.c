@@ -63,14 +63,13 @@ void cellular_pdp_failure(struct cellular *modem)
 
 int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
 {
-    char fmt[16];
-    if (snprintf(fmt, sizeof(fmt), "%%[0-9]%ds", (int) len) >= (int) sizeof(fmt)) {
-        return -1;
-    }
-
     at_set_timeout(modem->at, 1);
     const char *response = at_command(modem->at, "AT+CGSN");
-    at_simple_scanf(response, fmt, buf);
+    if(strlen(response) == 15) {
+      strncpy(buf, response, len);
+    } else {
+      return -1;
+    }
     buf[len-1] = '\0';
 
     return 0;
@@ -78,14 +77,27 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
 
 int cellular_op_iccid(struct cellular *modem, char *buf, size_t len)
 {
-    char fmt[16];
-    if (snprintf(fmt, sizeof(fmt), "%%[0-9]%ds", (int) len) >= (int) sizeof(fmt)) {
-        return -1;
-    }
-
     at_set_timeout(modem->at, 5);
     const char *response = at_command(modem->at, "AT+CCID");
-    at_simple_scanf(response, fmt, buf);
+    if(strlen(response) == 20) {
+      strncpy(buf, response, len);
+    } else {
+      return -1;
+    }
+    buf[len-1] = '\0';
+
+    return 0;
+}
+
+int cellular_op_imsi(struct cellular *modem, char *buf, size_t len)
+{
+    at_set_timeout(modem->at, 2);
+    const char *response = at_command(modem->at, "AT+CIMI");
+    if(strlen(response) == 15) {
+      strncpy(buf, response, len);
+    } else {
+      return -1;
+    }
     buf[len-1] = '\0';
 
     return 0;

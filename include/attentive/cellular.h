@@ -137,6 +137,10 @@ void cellular_telit2_free(struct cellular *modem);
 struct cellular *cellular_sim800_alloc(void);
 void cellular_sim800_free(struct cellular *modem);
 
+int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len);
+int cellular_sim800_bt_enable(struct cellular *modem);
+int cellular_sim800_bt_disable(struct cellular *modem);
+
 #endif
 
 /* vim: set ts=4 sw=4 et: */

@@ -208,10 +208,6 @@ static int sim800_attach(struct cellular *modem)
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
         "AT&W0",                        /* Save configuration. */
-        "AT+BTSPPCFG=\"MC\",1",
-        "AT+BTPAIRCFG=0",
-        "AT+BTSPPGET=1",
-        "AT+BTPOWER=1",
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)
@@ -838,6 +834,36 @@ struct cellular *cellular_sim800_alloc(void)
 void cellular_sim800_free(struct cellular *modem)
 {
     free(modem);
+}
+
+int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len)
+{
+    at_set_timeout(modem->at, 1);
+    const char *response = at_command(modem->at, "AT+BTHOST?");
+    at_simple_scanf(response, "+BTHOST: SIM800C,%s", buf);
+    buf[len-1] = '\0';
+
+    return 0;
+}
+
+int cellular_sim800_bt_enable(struct cellular *modem)
+{
+    at_set_timeout(modem->at, 1);
+    at_command_simple(modem->at, "AT+BTSPPCFG=\"MC\",1");
+    at_command_simple(modem->at, "AT+BTPAIRCFG=0");
+    at_command_simple(modem->at, "AT+BTSPPGET=1");
+    at_set_timeout(modem->at, 5);
+    at_command(modem->at, "AT+BTPOWER=1");
+
+    return 0;
+}
+
+int cellular_sim800_bt_disable(struct cellular *modem)
+{
+    at_set_timeout(modem->at, 5);
+    at_command(modem->at, "AT+BTPOWER=0");
+
+    return 0;
 }
 
 /* vim: set ts=4 sw=4 et: */

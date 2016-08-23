@@ -81,11 +81,6 @@ struct cellular_ops {
     int (*socket_waitack)(struct cellular *modem, int connid);
     int (*socket_close)(struct cellular *modem, int connid);
 
-    int (*ftp_open)(struct cellular *modem, const char *host, uint16_t port, const char *username, const char *password, bool passive);
-    int (*ftp_get)(struct cellular *modem, const char *filename);
-    int (*ftp_getdata)(struct cellular *modem, char *buffer, size_t length);
-    int (*ftp_close)(struct cellular *modem);
-
     int (*locate)(struct cellular *modem, float *latitude, float *longitude, float *altitude);
 };
 

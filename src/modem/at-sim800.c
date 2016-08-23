@@ -34,7 +34,6 @@
 
 #define SIM800_AUTOBAUD_ATTEMPTS 10
 #define SIM800_WAITACK_TIMEOUT   40
-#define SIM800_FTP_TIMEOUT       60
 #define SET_TIMEOUT              10
 #define GET_TIMEOUT              2
 #define NTP_BUF_SIZE             4
@@ -57,7 +56,6 @@ static const char *const sim800_urc_responses[] = {
     "+BTDISCONN: ",     /* BT disconnected */
     "+BTSPPMAN: ",      /* incoming BT SPP data notification */
     "+CIPRXGET: 1,",    /* incoming socket data notification */
-    "+FTPGET: 1,",      /* FTP state change notification */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */
@@ -80,7 +78,6 @@ static const char *const sim800_urc_responses[] = {
 struct cellular_sim800 {
     struct cellular dev;
 
-    int ftpget1_status;
     enum sim800_socket_status socket_status[SIM800_NSOCKETS];
     enum sim800_socket_status spp_status;
     int spp_connid;
@@ -134,8 +131,6 @@ static void handle_urc(const char *line, size_t len, void *arg)
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
     } else if(!strncmp(line, "+BTDISCONN: \"Druid_Tech\"", strlen("+BTDISCONN: \"Druid_Tech\""))) {
       priv->spp_status = SIM800_SOCKET_STATUS_UNKNOWN;
-    } else if (sscanf(line, "+FTPGET: 1,%d", &priv->ftpget1_status) == 1) {
-
     }
     return;
 }
@@ -688,110 +683,6 @@ int sim800_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
-static int sim800_ftp_open(struct cellular *modem, const char *host, uint16_t port, const char *username, const char *password, bool passive)
-{
-    /* Configure server parameters. */
-    at_command_simple(modem->at, "AT+FTPCID=1");
-    at_command_simple(modem->at, "AT+FTPSERV=\"%s\"", host);
-    at_command_simple(modem->at, "AT+FTPPORT=%d", port);
-    at_command_simple(modem->at, "AT+FTPUN=\"%s\"", username);
-    at_command_simple(modem->at, "AT+FTPPW=\"%s\"", password);
-    at_command_simple(modem->at, "AT+FTPMODE=%d", (int) passive);
-    at_command_simple(modem->at, "AT+FTPTYPE=I");
-
-    return 0;
-}
-
-static int sim800_ftp_get(struct cellular *modem, const char *filename)
-{
-    struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
-
-    /* Configure filename. */
-    at_command_simple(modem->at, "AT+FTPGETPATH=\"/\"");
-    at_command_simple(modem->at, "AT+FTPGETNAME=\"%s\"", filename);
-
-    /* Try to open the connection. */
-    priv->ftpget1_status = -1;
-    cellular_command_simple_pdp(modem, "AT+FTPGET=1");
-
-    /* Wait for the operation result. */
-    for (int i=0; i<SIM800_FTP_TIMEOUT; i++) {
-        if (priv->ftpget1_status == 1)
-            return 0;
-
-        if (priv->ftpget1_status != -1) {
-            return -1;
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    return -1;
-}
-
-static enum at_response_type scanner_ftpget2(const char *line, size_t len, void *arg)
-{
-    (void) len;
-    (void) arg;
-
-    int cnflength;
-    /* TODO: Verify if cnflength is indeed the size of raw payload. */
-    if (sscanf(line, "+FTPGET: 2,%d", &cnflength) == 1)
-        return AT_RESPONSE_RAWDATA_FOLLOWS(cnflength);
-    return AT_RESPONSE_UNKNOWN;
-}
-
-static int sim800_ftp_getdata(struct cellular *modem, char *buffer, size_t length)
-{
-    struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
-
-    int retries = 0;
-retry:
-    at_set_timeout(modem->at, SET_TIMEOUT);
-    at_set_command_scanner(modem->at, scanner_ftpget2);
-    const char *response = at_command(modem->at, "AT+FTPGET=2,%zu", length);
-
-    if (response == NULL)
-        return -1;
-
-    int cnflength;
-    if (sscanf(response, "+FTPGET: 2,%d", &cnflength) == 1) {
-        /* Zero means no data is available. Wait for it. */
-        if (cnflength == 0) {
-            /* Bail out on timeout. */
-            if (++retries >= SIM800_FTP_TIMEOUT) {
-                return -1;
-            }
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            goto retry;
-        }
-
-        /* Locate the payload. */
-        const char *data = strchr(response, '\n');
-        if (data == NULL) {
-            return -1;
-        }
-        data += 1;
-
-        /* Copy payload to result buffer. */
-        memcpy((char *)buffer, data, cnflength);
-        return cnflength;
-    } else if (priv->ftpget1_status == 0) {
-        /* Transfer finished. */
-        return 0;
-    } else {
-        return -1;
-    }
-}
-
-static int sim800_ftp_close(struct cellular *modem)
-{
-    /* Requires fairly recent SIM800 firmware. */
-    at_command_simple(modem->at, "AT+FTPQUIT");
-
-    return 0;
-}
-
 static const struct cellular_ops sim800_ops = {
     .attach = sim800_attach,
     .detach = sim800_detach,
@@ -812,10 +703,6 @@ static const struct cellular_ops sim800_ops = {
     .socket_recv = sim800_socket_recv,
     .socket_waitack = sim800_socket_waitack,
     .socket_close = sim800_socket_close,
-    .ftp_open = sim800_ftp_open,
-    .ftp_get = sim800_ftp_get,
-    .ftp_getdata = sim800_ftp_getdata,
-    .ftp_close = sim800_ftp_close,
 };
 
 struct cellular *cellular_sim800_alloc(void)

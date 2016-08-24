@@ -27,7 +27,8 @@
 #define CELLULAR_IMEI_LENGTH 15
 #define CELLULAR_MEID_LENGTH 14
 #define CELLULAR_ICCID_LENGTH 19
-
+#define CELLULAR_IMSI_LENGTH 15
+#define CELLULAR_MAC_LENGTH 17
 
 enum {
     CREG_NOT_REGISTERED = 0,
@@ -67,6 +68,8 @@ struct cellular_ops {
     int (*creg)(struct cellular *modem);
     /** Get signal strength. */
     int (*rssi)(struct cellular *modem);
+    /** Get the current operator. */
+    int (*cops)(struct cellular *modem);
 
 //    /** Read RTC date and time. Compatible with clock_gettime(). */
 //    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);

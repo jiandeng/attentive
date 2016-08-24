@@ -695,6 +695,7 @@ static const struct cellular_ops sim800_ops = {
     .imsi = cellular_op_imsi,
     .creg = cellular_op_creg,
     .rssi = cellular_op_rssi,
+    .cops = cellular_op_cops,
 //    .clock_gettime = sim800_clock_gettime,
 //    .clock_settime = sim800_clock_settime,
 //    .clock_ntptime = sim800_clock_ntptime,

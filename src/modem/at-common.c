@@ -65,7 +65,7 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, 1);
     const char *response = at_command(modem->at, "AT+CGSN");
-    if(strlen(response) == 15) {
+    if(strlen(response) == CELLULAR_IMEI_LENGTH) {
       strncpy(buf, response, len);
     } else {
       return -1;
@@ -79,7 +79,7 @@ int cellular_op_iccid(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, 5);
     const char *response = at_command(modem->at, "AT+CCID");
-    if(strlen(response) == 20) {
+    if(strlen(response) == CELLULAR_ICCID_LENGTH) {
       strncpy(buf, response, len);
     } else {
       return -1;
@@ -93,7 +93,7 @@ int cellular_op_imsi(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, 2);
     const char *response = at_command(modem->at, "AT+CIMI");
-    if(strlen(response) == 15) {
+    if(strlen(response) == CELLULAR_IMSI_LENGTH) {
       strncpy(buf, response, len);
     } else {
       return -1;
@@ -123,6 +123,18 @@ int cellular_op_rssi(struct cellular *modem)
     at_simple_scanf(response, "+CSQ: %d,%*d", &rssi);
 
     return rssi;
+}
+
+int cellular_op_cops(struct cellular *modem)
+{
+    int ops = -1;
+
+    at_set_timeout(modem->at, 1);
+    at_command_simple(modem->at, "AT+COPS=3,2");
+    const char *response = at_command(modem->at, "AT+COPS?");
+    at_simple_scanf(response, "+COPS: %*d,%*d,\"%d\"", &ops);
+
+    return ops;
 }
 
 //int cellular_op_clock_gettime(struct cellular *modem, struct timespec *ts)

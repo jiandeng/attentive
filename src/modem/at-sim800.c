@@ -210,15 +210,15 @@ static int sim800_attach(struct cellular *modem)
 
     /* Configure IP application. */
 
-//    /* Switch to multiple connections mode; it's less buggy. */
-//    if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
-//        return -1;
-//    /* Receive data manually. */
-//    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CIPCFG_RETRIES) != 0)
-//        return -1;
-//    /* Enable quick send mode. */
-//    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CIPCFG_RETRIES) != 0)
-//        return -1;
+    /* Switch to multiple connections mode; it's less buggy. */
+    if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
+        return -1;
+    /* Receive data manually. */
+    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CIPCFG_RETRIES) != 0)
+        return -1;
+    /* Enable quick send mode. */
+    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CIPCFG_RETRIES) != 0)
+        return -1;
 
     return 0;
 }
@@ -360,8 +360,8 @@ static int sim800_pdp_open(struct cellular *modem, const char *apn)
     at_set_timeout(modem->at, SET_TIMEOUT);
 
     /* Configure and open context for FTP/HTTP applications. */
-    at_command_simple(modem->at, "AT+SAPBR=3,1,APN,\"%s\"", apn);
-    at_command(modem->at, "AT+SAPBR=1,1");
+//    at_command_simple(modem->at, "AT+SAPBR=3,1,APN,\"%s\"", apn);
+//    at_command(modem->at, "AT+SAPBR=1,1");
 
     /* Skip the configuration if context is already open. */
     if (sim800_ipstatus(modem) == 0)
@@ -614,7 +614,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
-          if (confirmed == 0)
+          if (requested == 0)
               break;
 
           /* Locate the payload. */
@@ -626,8 +626,8 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           }
 
           /* Copy payload to result buffer. */
-          memcpy((char *)buffer + cnt, data, confirmed);
-          cnt += confirmed;
+          memcpy((char *)buffer + cnt, data, requested);
+          cnt += requested;
       }
     }
 

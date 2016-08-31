@@ -70,6 +70,8 @@ struct cellular_ops {
     int (*rssi)(struct cellular *modem);
     /** Get the current operator. */
     int (*cops)(struct cellular *modem);
+    /** Test the at channel. */
+    int (*test)(struct cellular *modem);
 
 //    /** Read RTC date and time. Compatible with clock_gettime(). */
 //    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);

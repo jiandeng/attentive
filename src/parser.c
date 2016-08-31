@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #define printf(...)
+#define AT_BUF_SIZE   512
 
 enum at_parser_state {
     STATE_IDLE,
@@ -55,22 +56,16 @@ static const char *const urc_responses[] = {
     NULL
 };
 
-struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, size_t bufsize, void *priv)
+struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, void *priv)
 {
-    /* Allocate parser struct. */
-    struct at_parser *parser = (struct at_parser *) malloc(sizeof(struct at_parser));
-    if (parser == NULL) {
-        return NULL;
-    }
+  static char at_buf[AT_BUF_SIZE];
+  static struct at_parser at_parser;
+  struct at_parser *parser = &at_parser;
 
     /* Allocate response buffer. */
-    parser->buf = malloc(bufsize);
-    if (parser->buf == NULL) {
-        free(parser);
-        return NULL;
-    }
+    parser->buf = at_buf;
+    parser->buf_size = sizeof(at_buf);
     parser->cbs = cbs;
-    parser->buf_size = bufsize;
     parser->priv = priv;
 
     /* Prepare instance. */
@@ -337,8 +332,7 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
 
 void at_parser_free(struct at_parser *parser)
 {
-    free(parser->buf);
-    free(parser);
+
 }
 
 /* vim: set ts=4 sw=4 et: */

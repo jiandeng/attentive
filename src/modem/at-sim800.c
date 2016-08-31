@@ -696,6 +696,7 @@ static const struct cellular_ops sim800_ops = {
     .creg = cellular_op_creg,
     .rssi = cellular_op_rssi,
     .cops = cellular_op_cops,
+    .test = cellular_op_test,
 //    .clock_gettime = sim800_clock_gettime,
 //    .clock_settime = sim800_clock_settime,
 //    .clock_ntptime = sim800_clock_ntptime,
@@ -706,12 +707,11 @@ static const struct cellular_ops sim800_ops = {
     .socket_close = sim800_socket_close,
 };
 
+static struct cellular_sim800 cellular;
+
 struct cellular *cellular_sim800_alloc(void)
 {
-    struct cellular_sim800 *modem = malloc(sizeof(struct cellular_sim800));
-    if (modem == NULL) {
-        return NULL;
-    }
+    struct cellular_sim800 *modem = &cellular;
     memset(modem, 0, sizeof(*modem));
 
     modem->dev.ops = &sim800_ops;
@@ -721,7 +721,6 @@ struct cellular *cellular_sim800_alloc(void)
 
 void cellular_sim800_free(struct cellular *modem)
 {
-    free(modem);
 }
 
 int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len)

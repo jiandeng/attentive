@@ -21,7 +21,7 @@
 
 struct at_freertos {
     struct at at;
-    int timeout;            /**< Command timeout in seconds. */
+    int timeout;
     const char *response;
 
     TaskHandle_t xTask;
@@ -77,19 +77,12 @@ static const struct at_parser_callbacks parser_callbacks = {
 
 struct at *at_alloc_freertos(void)
 {
-    /* allocate instance */
-    struct at_freertos *priv = malloc(sizeof(struct at_freertos));
-    if (!priv) {
-        return NULL;
-    }
+    static struct at_freertos at;
+    struct at_freertos *priv = &at;
     memset(priv, 0, sizeof(struct at_freertos));
 
     /* allocate underlying parser */
-    priv->at.parser = at_parser_alloc(&parser_callbacks, 512, (void *) priv);
-    if (!priv->at.parser) {
-        free(priv);
-        return NULL;
-    }
+    priv->at.parser = at_parser_alloc(&parser_callbacks, (void *) priv);
 
     /* initialize and start reader thread */
     priv->running = true;
@@ -145,10 +138,6 @@ void at_free(struct at *at)
     if(priv->xTask != NULL) {
         vTaskDelete(priv->xTask);
     }
-
-    /* free up resources */
-    free(priv->at.parser);
-    free(priv);
 }
 
 void at_set_callbacks(struct at *at, const struct at_callbacks *cbs, void *arg)

@@ -137,6 +137,15 @@ int cellular_op_cops(struct cellular *modem)
     return ops;
 }
 
+int cellular_op_test(struct cellular *modem)
+{
+    at_set_timeout(modem->at, 1);
+    at_command_simple(modem->at, "AT");
+
+    return 0;
+}
+
+
 //int cellular_op_clock_gettime(struct cellular *modem, struct timespec *ts)
 //{
 //    struct tm tm;

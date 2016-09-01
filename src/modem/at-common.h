@@ -11,6 +11,9 @@
 
 #include <attentive/cellular.h>
 
+#define AT_TIMEOUT_SHORT          2
+#define AT_TIMEOUT_LONG           5
+
 /**
  * Request a PDP context. Opens one if isn't already active.
  *

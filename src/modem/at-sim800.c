@@ -32,11 +32,11 @@
  * We work it all around, but it makes the code unnecessarily complex.
  */
 
-#define SIM800_AUTOBAUD_ATTEMPTS 10
-#define SIM800_WAITACK_TIMEOUT   40
-#define SET_TIMEOUT              10
-#define GET_TIMEOUT              2
-#define NTP_BUF_SIZE             4
+#define SIM800_AUTOBAUD_ATTEMPTS  10
+#define SIM800_WAITACK_TIMEOUT    40
+#define SIM800_CIICR_TIMEOUT      45
+#define NTP_BUF_SIZE              4
+
 
 enum sim800_socket_status {
     SIM800_SOCKET_STATUS_ERROR = -1,
@@ -148,8 +148,6 @@ static const struct at_callbacks sim800_callbacks = {
  */
 static int sim800_config(struct cellular *modem, const char *option, const char *value, int attempts)
 {
-    at_set_timeout(modem->at, 10);
-
     for (int i=0; i<attempts; i++) {
         /* Blindly try to set the configuration option. */
         at_command(modem->at, "AT+%s=%s", option, value);
@@ -179,7 +177,7 @@ static int sim800_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &sim800_callbacks, (void *) modem);
 
-    at_set_timeout(modem->at, 2);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
     /* Perform autobauding. */
     for (int i=0; i<SIM800_AUTOBAUD_ATTEMPTS; i++) {
@@ -323,7 +321,7 @@ static enum at_response_type scanner_cipstatus(const char *line, size_t len, voi
  */
 static int sim800_ipstatus(struct cellular *modem)
 {
-    at_set_timeout(modem->at, 10);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_set_command_scanner(modem->at, scanner_cipstatus);
     const char *response = at_command(modem->at, "AT+CIPSTATUS");
 
@@ -357,7 +355,7 @@ static enum at_response_type scanner_cifsr(const char *line, size_t len, void *a
 
 static int sim800_pdp_open(struct cellular *modem, const char *apn)
 {
-    at_set_timeout(modem->at, SET_TIMEOUT);
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
 
     /* Configure and open context for FTP/HTTP applications. */
 //    at_command_simple(modem->at, "AT+SAPBR=3,1,APN,\"%s\"", apn);
@@ -374,10 +372,13 @@ static int sim800_pdp_open(struct cellular *modem, const char *apn)
      * the GPRS states documentation. */
 
     /* Configure context for TCP/IP applications. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command(modem->at, "AT+CSTT=\"%s\"", apn);
     /* Establish context. */
+    at_set_timeout(modem->at, SIM800_CIICR_TIMEOUT);
     at_command(modem->at, "AT+CIICR");
     /* Read local IP address. Switches modem to IP STATUS state. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_set_command_scanner(modem->at, scanner_cifsr);
     at_command(modem->at, "AT+CIFSR");
 
@@ -396,7 +397,7 @@ static enum at_response_type scanner_cipshut(const char *line, size_t len, void 
 
 static int sim800_pdp_close(struct cellular *modem)
 {
-    at_set_timeout(modem->at, SET_TIMEOUT);
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
     at_set_command_scanner(modem->at, scanner_cipshut);
     at_command_simple(modem->at, "AT+CIPSHUT");
 
@@ -412,7 +413,7 @@ static int sim800_socket_connect(struct cellular *modem, int connid, const char 
       return !(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status);
     } else if(connid < SIM800_NSOCKETS) {
       /* Send connection request. */
-      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
       cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
 
@@ -460,7 +461,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       }
       amount = amount > 1024 ? 1024 : amount;
       /* Request transmission. */
-      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_expect_dataprompt(modem->at);
       at_command_simple(modem->at, "AT+BTSPPSEND=%d,%zu", priv->spp_connid, amount);
 
@@ -473,7 +474,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       }
       amount = amount > 1460 ? 1460 : amount;
       /* Request transmission. */
-      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_expect_dataprompt(modem->at);
       at_command_simple(modem->at, "AT+CIPSEND=%d,%zu", connid, amount);
 
@@ -550,7 +551,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           chunk = chunk > 480 ? 480 : chunk;
 
           /* Perform the read. */
-          at_set_timeout(modem->at, GET_TIMEOUT);
+          at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
           at_set_command_scanner(modem->at, scanner_btsppget);
           at_set_character_handler(modem->at, character_handler_btsppget);
           const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
@@ -596,7 +597,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           chunk = chunk > 480 ? 480 : chunk;
 
           /* Perform the read. */
-          at_set_timeout(modem->at, SET_TIMEOUT);
+          at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
           at_set_command_scanner(modem->at, scanner_ciprxget);
           const char *response = at_command(modem->at, "AT+CIPRXGET=2,%d,%d", connid, chunk);
           if (response == NULL)
@@ -640,7 +641,7 @@ static int sim800_socket_waitack(struct cellular *modem, int connid)
     if(connid == SIM800_NSOCKETS) {
       return 0;
     } else if(connid < SIM800_NSOCKETS) {
-      at_set_timeout(modem->at, 5);
+      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       for (int i=0; i<SIM800_WAITACK_TIMEOUT; i++) {
           /* Read number of bytes waiting. */
           int nacklen;
@@ -676,7 +677,7 @@ int sim800_socket_close(struct cellular *modem, int connid)
     if(connid == SIM800_NSOCKETS) {
       at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);
     } else if(connid < SIM800_NSOCKETS) {
-      at_set_timeout(modem->at, SET_TIMEOUT);
+      at_set_timeout(modem->at, AT_TIMEOUT_LONG);
       at_set_command_scanner(modem->at, scanner_cipclose);
       at_command_simple(modem->at, "AT+CIPCLOSE=%d", connid);
     }
@@ -725,7 +726,7 @@ void cellular_sim800_free(struct cellular *modem)
 
 int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len)
 {
-    at_set_timeout(modem->at, 1);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT+BTHOST?");
     at_simple_scanf(response, "+BTHOST: SIM800C,%s", buf);
     buf[len-1] = '\0';
@@ -735,11 +736,11 @@ int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len)
 
 int cellular_sim800_bt_enable(struct cellular *modem)
 {
-    at_set_timeout(modem->at, 1);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT+BTSPPCFG=\"MC\",1");
     at_command_simple(modem->at, "AT+BTPAIRCFG=0");
     at_command_simple(modem->at, "AT+BTSPPGET=1");
-    at_set_timeout(modem->at, 5);
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
     at_command(modem->at, "AT+BTPOWER=1");
 
     return 0;
@@ -747,7 +748,7 @@ int cellular_sim800_bt_enable(struct cellular *modem)
 
 int cellular_sim800_bt_disable(struct cellular *modem)
 {
-    at_set_timeout(modem->at, 5);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command(modem->at, "AT+BTPOWER=0");
 
     return 0;

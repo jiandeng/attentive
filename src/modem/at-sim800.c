@@ -198,7 +198,7 @@ static int sim800_attach(struct cellular *modem)
     /* Initialize modem. */
     static const char *const init_strings[] = {
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
-        "AT+IFC=0,0",                   /* Disable hardware flow control. */
+//        "AT+IFC=0,0",                   /* Disable hardware flow control. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
@@ -492,10 +492,10 @@ static enum at_response_type scanner_ciprxget(const char *line, size_t len, void
     (void) len;
     (void) arg;
 
-    int requested, confirmed;
-    if (sscanf(line, "+CIPRXGET: 2,%*d,%d,%d", &requested, &confirmed) == 2)
-        if (confirmed > 0)
-            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
+    int read, left;
+    if (sscanf(line, "+CIPRXGET: 2,%*d,%d,%d", &read, &left) == 2)
+        if (read > 0)
+            return AT_RESPONSE_RAWDATA_FOLLOWS(read);
 
     return AT_RESPONSE_UNKNOWN;
 }
@@ -505,21 +505,21 @@ static enum at_response_type scanner_btsppget(const char *line, size_t len, void
     (void) len;
     (void) arg;
 
-    int confirmed;
-    if (sscanf(line, "+BTSPPGET: %*d,%d", &confirmed) == 1)
-        if (confirmed > 0)
-            return AT_RESPONSE_RAWDATA_FOLLOWS(confirmed);
+    int read;
+    if (sscanf(line, "+BTSPPGET: %*d,%d", &read) == 1)
+        if (read > 0)
+            return AT_RESPONSE_RAWDATA_FOLLOWS(read);
 
     return AT_RESPONSE_UNKNOWN;
 }
 
 static char character_handler_btsppget(char ch, char *line, size_t len, void *arg) {
     struct at *priv = (struct at *) arg;
-    int confirmed;
+    int read;
 
     if(ch == ',') {
       line[len] = '\0';
-      if (sscanf(line, "+BTSPPGET: %*d,%d,", &confirmed) == 1) {
+      if (sscanf(line, "+BTSPPGET: %*d,%d,", &read) == 1) {
         ch = '\n';
       }
     }
@@ -558,18 +558,18 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
               return -1;
 
           /* Find the header line. */
-          int confirmed;
+          int read;
           // TODO:
           // 1. connid is not checked
           // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &confirmed);
+          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &read);
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
-          if (confirmed == 0)
+          if (read == 0)
               break;
 
           /* Locate the payload. */
@@ -581,8 +581,8 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           }
 
           /* Copy payload to result buffer. */
-          memcpy((char *)buffer + cnt, data, confirmed);
-          cnt += confirmed;
+          memcpy((char *)buffer + cnt, data, read);
+          cnt += read;
       }
     }
     else if(connid < SIM800_NSOCKETS) {
@@ -603,18 +603,18 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
               return -1;
 
           /* Find the header line. */
-          int requested, confirmed;
+          int read, left;
           // TODO:
           // 1. connid is not checked
           // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &requested, &confirmed);
+          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left);
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
-          if (requested == 0)
+          if (read == 0)
               break;
 
           /* Locate the payload. */
@@ -626,8 +626,8 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           }
 
           /* Copy payload to result buffer. */
-          memcpy((char *)buffer + cnt, data, requested);
-          cnt += requested;
+          memcpy((char *)buffer + cnt, data, read);
+          cnt += read;
       }
     }
 

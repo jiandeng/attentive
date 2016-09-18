@@ -13,6 +13,7 @@
 
 #define AT_TIMEOUT_SHORT          2
 #define AT_TIMEOUT_LONG           5
+#define AT_TIMEOUT_SMS            20
 
 /**
  * Request a PDP context. Opens one if isn't already active.
@@ -61,6 +62,8 @@ int cellular_op_creg(struct cellular *modem);
 int cellular_op_rssi(struct cellular *modem);
 int cellular_op_cops(struct cellular *modem);
 int cellular_op_test(struct cellular *modem);
+int cellular_op_ats0(struct cellular *modem);
+int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len);
 //int cellular_op_clock_gettime(struct cellular *modem, struct timespec *ts);
 //int cellular_op_clock_settime(struct cellular *modem, const struct timespec *ts);
 

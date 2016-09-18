@@ -72,6 +72,10 @@ struct cellular_ops {
     int (*cops)(struct cellular *modem);
     /** Test the at channel. */
     int (*test)(struct cellular *modem);
+    /** Enable auto answer calls. */
+    int (*ats0)(struct cellular *modem);
+    /** Send SMS. */
+    int (*sms)(struct cellular *modem, char* num, char* msg, size_t len);
 
 //    /** Read RTC date and time. Compatible with clock_gettime(). */
 //    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);

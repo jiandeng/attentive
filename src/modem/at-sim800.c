@@ -379,7 +379,7 @@ static int sim800_pdp_open(struct cellular *modem, const char *apn)
     at_set_timeout(modem->at, SIM800_CIICR_TIMEOUT);
     at_command(modem->at, "AT+CIICR");
     /* Read local IP address. Switches modem to IP STATUS state. */
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
     at_set_command_scanner(modem->at, scanner_cifsr);
     at_command(modem->at, "AT+CIFSR");
 
@@ -411,7 +411,17 @@ static int sim800_socket_connect(struct cellular *modem, int connid, const char 
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
     if(connid == SIM800_NSOCKETS) {
-      return !(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status);
+      if(cellular_sim800_bt_enable(modem) != 0) {
+        return -1;
+      }
+      for (int i=0; i<SIM800_CONNECT_TIMEOUT; i++) {
+        if(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status) {
+          return 0;
+        } else if(SIM800_SOCKET_STATUS_ERROR == priv->spp_status) {
+          return -1;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+      }
     } else if(connid < SIM800_NSOCKETS) {
       /* Send connection request. */
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
@@ -744,6 +754,7 @@ int cellular_sim800_bt_enable(struct cellular *modem)
     at_command_simple(modem->at, "AT+BTPAIRCFG=0");
     at_command_simple(modem->at, "AT+BTSPPGET=1");
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_command_simple(modem->at, "AT+CFUN=4");
     at_command(modem->at, "AT+BTPOWER=1");
 
     return 0;

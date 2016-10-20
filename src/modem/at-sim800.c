@@ -34,9 +34,11 @@
 
 #define SIM800_AUTOBAUD_ATTEMPTS  10
 #define SIM800_WAITACK_TIMEOUT    40
-#define SIM800_CIICR_TIMEOUT      45
+#define SIM800_CIICR_TIMEOUT      45  // TODO: fix timing
+#define SIM800_CONNECT_TIMEOUT    30
+#define SIM800_CIPCFG_RETRIES     10
+#define SIM800_NSOCKETS           6
 #define NTP_BUF_SIZE              4
-
 
 enum sim800_socket_status {
     SIM800_SOCKET_STATUS_ERROR = -1,
@@ -44,9 +46,7 @@ enum sim800_socket_status {
     SIM800_SOCKET_STATUS_CONNECTED = 1,
 };
 
-#define SIM800_NSOCKETS                 6
-#define SIM800_CONNECT_TIMEOUT          20
-#define SIM800_CIPCFG_RETRIES           10
+
 
 static const char *const sim800_urc_responses[] = {
     "+BTPAIRING: ",     /* BT pairing request notification */

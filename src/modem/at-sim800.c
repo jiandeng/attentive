@@ -32,13 +32,14 @@
  * We work it all around, but it makes the code unnecessarily complex.
  */
 
-#define SIM800_AUTOBAUD_ATTEMPTS  10
-#define SIM800_WAITACK_TIMEOUT    40
-#define SIM800_CIICR_TIMEOUT      45  // TODO: fix timing
-#define SIM800_CONNECT_TIMEOUT    30
-#define SIM800_CIPCFG_RETRIES     10
-#define SIM800_NSOCKETS           6
-#define NTP_BUF_SIZE              4
+#define SIM800_AUTOBAUD_ATTEMPTS    10
+#define SIM800_WAITACK_TIMEOUT      40
+#define SIM800_CIICR_TIMEOUT        45  // TODO: fix timing
+#define SIM800_TCP_CONNECT_TIMEOUT  40
+#define SIM800_SPP_CONNECT_TIMEOUT  60
+#define SIM800_CIPCFG_RETRIES       10
+#define SIM800_NSOCKETS             6
+#define NTP_BUF_SIZE                4
 
 enum sim800_socket_status {
     SIM800_SOCKET_STATUS_ERROR = -1,
@@ -414,7 +415,7 @@ static int sim800_socket_connect(struct cellular *modem, int connid, const char 
       if(cellular_sim800_bt_enable(modem) != 0) {
         return -1;
       }
-      for (int i=0; i<SIM800_CONNECT_TIMEOUT; i++) {
+      for (int i=0; i<SIM800_SPP_CONNECT_TIMEOUT; i++) {
         if(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status) {
           return 0;
         } else if(SIM800_SOCKET_STATUS_ERROR == priv->spp_status) {
@@ -429,7 +430,7 @@ static int sim800_socket_connect(struct cellular *modem, int connid, const char 
       cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
 
       /* Wait for socket status URC. */
-      for (int i=0; i<SIM800_CONNECT_TIMEOUT; i++) {
+      for (int i=0; i<SIM800_TCP_CONNECT_TIMEOUT; i++) {
           if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
               return 0;
           } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {

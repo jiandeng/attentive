@@ -13,6 +13,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+/** Buffer size */
+#define AT_BUF_SIZE   512
+
 /**
  * AT response type.
  *

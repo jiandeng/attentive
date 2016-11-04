@@ -16,6 +16,10 @@
 
 #include "at-common.h"
 #define printf(...)
+#include "debug.h"
+
+/* Defines -------------------------------------------------------------------*/
+DBG_SET_LEVEL(DBG_LEVEL_V);
 
 /*
  * SIM800 probably holds the highly esteemed position of the world's worst
@@ -50,13 +54,13 @@ enum sim800_socket_status {
 
 
 static const char *const sim800_urc_responses[] = {
+    "+CIPRXGET: 1,",    /* Incoming socket data notification */
+    "+BTSPPMAN: ",      /* Incoming BT SPP data notification */
     "+BTPAIRING: ",     /* BT pairing request notification */
     "+BTPAIR: ",        /* BT paired */
     "+BTCONNECTING: ",  /* BT connecting request notification */
     "+BTCONNECT: ",     /* BT connected */
     "+BTDISCONN: ",     /* BT disconnected */
-    "+BTSPPMAN: ",      /* incoming BT SPP data notification */
-    "+CIPRXGET: 1,",    /* incoming socket data notification */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */
@@ -120,7 +124,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sim800 *priv = arg;
 
-    printf("[sim800@%p] urc: %.*s\n", priv, (int) len, line);
+    DBG_V("U> %s\r\n", line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1");
@@ -533,12 +537,9 @@ static char character_handler_btsppget(char ch, char *line, size_t len, void *ar
     if(ch == ',') {
       line[len] = '\0';
       if (sscanf(line, "+BTSPPGET: %*d,%d,", &read) == 1) {
+        at_set_character_handler(priv, NULL);
         ch = '\n';
       }
-    }
-
-    if(len > 0 && ch == '\n') {
-      at_set_character_handler(priv, NULL);
     }
 
     return ch;

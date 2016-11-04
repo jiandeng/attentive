@@ -10,8 +10,10 @@
 
 #include <stdio.h>
 #include <string.h>
-#define printf(...)
-#define AT_BUF_SIZE   512
+#include "debug.h"
+
+/* Defines -------------------------------------------------------------------*/
+DBG_SET_LEVEL(DBG_LEVEL_V);
 
 enum at_parser_state {
     STATE_IDLE,
@@ -174,7 +176,7 @@ static void parser_handle_line(struct at_parser *parser)
     size_t len = parser->buf_used - parser->buf_current;
 
     /* Log the received line. */
-    printf("< '%.*s'\n", (int) len, line);
+    DBG_V(">> %s (%d)\r\n", line, len);
 
     /* Determine response type. */
     enum at_response_type type = AT_RESPONSE_UNKNOWN;

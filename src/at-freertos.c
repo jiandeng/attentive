@@ -15,6 +15,10 @@
 #include "task.h"
 #include "semphr.h"
 #define printf(...)
+#include "debug.h"
+
+/* Defines -------------------------------------------------------------------*/
+DBG_SET_LEVEL(DBG_LEVEL_V);
 
 // Remove once you refactor this out.
 #define AT_COMMAND_LENGTH 80
@@ -22,7 +26,7 @@
 struct at_freertos {
     struct at at;
     int timeout;
-    const char *response;
+    char response[AT_BUF_SIZE];
 
     TaskHandle_t xTask;
     /*SemaphoreHandle_t xMutex;*/
@@ -42,7 +46,10 @@ static void handle_response(const char *buf, size_t len, void *arg)
     struct at_freertos *priv = (struct at_freertos *) arg;
 
     /* The mutex is held by the reader thread; don't reacquire. */
-    priv->response = buf;
+    memcpy(priv->response, buf, len);
+    if(len < AT_BUF_SIZE) {
+        priv->response[len] = 0;
+    }
     (void) len;
     priv->waiting = false;
     xSemaphoreGive(priv->xSem);
@@ -87,6 +94,7 @@ struct at *at_alloc_freertos(void)
     /* initialize and start reader thread */
     priv->running = true;
     /*priv->xMutex = xSemaphoreCreateBinary();*/
+    // CAUSING: create the reader task at high priority
     priv->xSem = xSemaphoreCreateBinary();
     xTaskCreate(at_reader_thread, "ATReadTask", configMINIMAL_STACK_SIZE * 2, priv, 4, &priv->xTask);
 
@@ -102,9 +110,9 @@ int at_open(struct at *at)
         return -1;
     } else {
         FreeRTOS_ioctl(priv->xUART, ioctlUSE_DMA_TX, (void*)0);
-        FreeRTOS_ioctl(priv->xUART, ioctlUSE_CIRCULAR_BUFFER_RX, (void*)512);
+        FreeRTOS_ioctl(priv->xUART, ioctlUSE_CIRCULAR_BUFFER_RX, (void*)AT_BUF_SIZE);
         FreeRTOS_ioctl(priv->xUART, ioctlSET_TX_TIMEOUT, (void*)pdMS_TO_TICKS(200));
-        FreeRTOS_ioctl(priv->xUART, ioctlSET_RX_TIMEOUT, (void*)pdMS_TO_TICKS(50));
+        FreeRTOS_ioctl(priv->xUART, ioctlSET_RX_TIMEOUT, (void*)pdMS_TO_TICKS(100));
     }
 
     priv->open = true;
@@ -235,7 +243,7 @@ const char *at_command(struct at *at, const char *format, ...)
         return NULL;
     }
 
-    printf("> %s\n", line);
+    DBG_V("<< %s\r\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -248,7 +256,7 @@ const char *at_command_raw(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    printf("> [%zu bytes]\n", size);
+    DBG_V("<< [%d bytes]\n", size);
 
     return _at_command(priv, data, size);
 }
@@ -283,7 +291,7 @@ bool at_send(struct at *at, const char *format, ...)
         return false;
     }
 
-    printf("> %s\n", line);
+    DBG_V("S< %s\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -296,7 +304,7 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    printf("> [%zu bytes]\n", size);
+    DBG_V("S< [%d bytes]\n", size);
 
     return _at_send(priv, data, size);
 }

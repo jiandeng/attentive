@@ -13,7 +13,7 @@
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_V);
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 enum at_parser_state {
     STATE_IDLE,

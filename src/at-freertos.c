@@ -18,7 +18,7 @@
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_V);
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 // Remove once you refactor this out.
 #define AT_COMMAND_LENGTH 80

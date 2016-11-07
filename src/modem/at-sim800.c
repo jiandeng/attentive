@@ -19,7 +19,7 @@
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_I);
+DBG_SET_LEVEL(DBG_LEVEL_D);
 
 /*
  * SIM800 probably holds the highly esteemed position of the world's worst
@@ -124,7 +124,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sim800 *priv = arg;
 
-    DBG_V("U> %s\r\n", line);
+    DBG_D("U> %s\r\n", line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1");
@@ -555,6 +555,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
     // FIXME: It has to be changed. Leave for now
     if(connid == SIM800_NSOCKETS) {
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
+        DBG_I(">>>>DISCONNECTED\r\n");
         return -1;
       }
       char tries = 4;
@@ -568,8 +569,10 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           at_set_command_scanner(modem->at, scanner_btsppget);
           at_set_character_handler(modem->at, character_handler_btsppget);
           const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
-          if (response == NULL)
+          if (response == NULL) {
+              DBG_W(">>>>NO RESPONSE\r\n");
               return -1;
+          }
 
           /* Find the header line. */
           int read;
@@ -579,7 +582,11 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &read);
+//          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &read);
+          if(sscanf(response, "+BTSPPGET: %*d,%d", &read) != 1) {
+              DBG_I(">>>>BAD RESPONSE\r\n");
+              return -1;
+          }
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
@@ -591,6 +598,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
            * should use strnchr at least */
           const char *data = strchr(response, '\n');
           if (data++ == NULL) {
+              DBG_I(">>>>NO DATA\r\n");
               return -1;
           }
 
@@ -601,6 +609,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
     }
     else if(connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
+        DBG_I(">>>>DISCONNECTED\r\n");
         return -1;
       }
       char tries = 4;
@@ -613,9 +622,10 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
           at_set_command_scanner(modem->at, scanner_ciprxget);
           const char *response = at_command(modem->at, "AT+CIPRXGET=2,%d,%d", connid, chunk);
-          if (response == NULL)
+          if (response == NULL) {
+              DBG_W(">>>>NO RESPONSE\r\n");
               return -1;
-
+          }
           /* Find the header line. */
           int read, left;
           // TODO:
@@ -624,7 +634,11 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           // then wierd things can happen. see memcpy
           // requested should be equal to chunk
           // confirmed is that what can be read
-          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left);
+//          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left);
+          if(sscanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left) != 2) {
+              DBG_I(">>>>BAD RESPONSE\r\n");
+              return -1;
+          }
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
@@ -636,6 +650,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
            * should use strnchr at least */
           const char *data = strchr(response, '\n');
           if (data++ == NULL) {
+              DBG_I(">>>>NO DATA\r\n");
               return -1;
           }
 

@@ -372,6 +372,22 @@ static int sara_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
+static int sara_op_cops(struct cellular *modem)
+{
+    int ops = -1;
+    int rat = -1;
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT+COPS=3,2");
+    const char *response = at_command(modem->at, "AT+COPS?");
+    int ret = sscanf(response, "+COPS: %*d,%*d,\"%d\",%d", &ops, &rat);
+    if(ret == 2) {
+        ops |= rat << 24;
+    }
+
+    return ops;
+}
+
 static const struct cellular_ops sara_ops = {
     .attach = sara_attach,
     .detach = sara_detach,
@@ -384,7 +400,7 @@ static const struct cellular_ops sara_ops = {
     .imsi = cellular_op_imsi,
     .creg = cellular_op_creg,
     .rssi = cellular_op_rssi,
-    .cops = cellular_op_cops,
+    .cops = sara_op_cops,
     .test = cellular_op_test,
     .ats0 = cellular_op_ats0,
     .sms = cellular_op_sms,

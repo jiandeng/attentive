@@ -29,7 +29,7 @@ struct at_parser {
     void *priv;
 
     enum at_parser_state state;
-    bool expect_dataprompt;
+    const char* dataprompt;
     size_t data_left;
     int nibble;
 
@@ -79,7 +79,7 @@ struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, void *p
 void at_parser_reset(struct at_parser *parser)
 {
     parser->state = STATE_IDLE;
-    parser->expect_dataprompt = false;
+    parser->dataprompt = NULL;
     parser->buf_used = 0;
     parser->buf_current = 0;
     parser->data_left = 0;
@@ -91,14 +91,14 @@ void at_parser_set_character_handler(struct at_parser *parser, at_character_hand
     parser->character_handler = handler;
 }
 
-void at_parser_expect_dataprompt(struct at_parser *parser)
+void at_parser_expect_dataprompt(struct at_parser *parser, const char *prompt)
 {
-    parser->expect_dataprompt = true;
+    parser->dataprompt = prompt;
 }
 
 void at_parser_await_response(struct at_parser *parser)
 {
-    parser->state = (parser->expect_dataprompt ? STATE_DATAPROMPT : STATE_READLINE);
+    parser->state = (parser->dataprompt ? STATE_DATAPROMPT : STATE_READLINE);
 }
 
 bool at_prefix_in_table(const char *line, const char *const table[])
@@ -114,8 +114,8 @@ static enum at_response_type generic_line_scanner(const char *line, size_t len, 
 {
     (void) len;
 
-    if (parser->state == STATE_DATAPROMPT)
-        if (len == 2 && !memcmp(line, "> ", 2))
+    if (parser->state == STATE_DATAPROMPT && parser->dataprompt != NULL)
+        if (len == strlen(parser->dataprompt) && !memcmp(line, parser->dataprompt, len))
             return AT_RESPONSE_FINAL_OK;
 
     if (at_prefix_in_table(line, urc_responses))
@@ -288,8 +288,8 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                 /* Handle full lines. */
                 if ((ch == '\n') ||
                     (parser->state == STATE_DATAPROMPT &&
-                     parser->buf_used == 2 &&
-                     !memcmp(parser->buf, "> ", 2)))
+                     parser->buf_used == strlen(parser->dataprompt) &&
+                     !memcmp(parser->buf, parser->dataprompt, parser->buf_used)))
                 {
                     parser_handle_line(parser);
                 }

@@ -175,9 +175,9 @@ void at_set_character_handler(struct at *at, at_character_handler_t handler)
     at_parser_set_character_handler(at->parser, handler);
 }
 
-void at_expect_dataprompt(struct at *at)
+void at_expect_dataprompt(struct at *at, const char *prompt)
 {
-    at_parser_expect_dataprompt(at->parser);
+    at_parser_expect_dataprompt(at->parser, prompt);
 }
 
 static const char *_at_command(struct at_freertos *priv, const void *data, size_t size)

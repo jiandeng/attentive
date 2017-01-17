@@ -86,11 +86,11 @@ void at_set_command_scanner(struct at *at, at_line_scanner_t scanner);
 void at_set_character_handler(struct at *at, at_character_handler_t handler);
 
 /**
- * Expect "> " dataprompt as a response for the next command.
+ * Expect "> " or "@" dataprompt as a response for the next command.
  *
  * @param at AT channel instance.
  */
-void at_expect_dataprompt(struct at *at);
+void at_expect_dataprompt(struct at *at, const char *prompt);
 
 /**
  * Set command timeout.

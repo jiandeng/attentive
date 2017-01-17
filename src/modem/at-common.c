@@ -165,7 +165,7 @@ int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
     // Text mode
     at_command_simple(modem->at, "AT+CMGF=1");
     // SMS command
-    at_expect_dataprompt(modem->at);
+    at_expect_dataprompt(modem->at, "> ");
     at_command_simple(modem->at, "AT+CMGS=\"%s\"", num);
     // SMS data
     at_set_timeout(modem->at, AT_TIMEOUT_SMS);

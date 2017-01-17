@@ -87,13 +87,13 @@ void at_parser_set_character_handler(struct at_parser *parser, at_character_hand
 /**
  * Make the parser expect a dataprompt for the next command.
  *
- * Some AT commands, mostly those used for transmitting raw data, return a "> "
- * prompt (without a newline). The parser must be told explicitly to expect it
- * on a per-command basis.
+ * Some AT commands, mostly those used for transmitting raw data,
+ * return a "> " or "@" prompt (without a newline).
+ * The parser must be told explicitly to expect it on a per-command basis.
  *
  * @param parser Parser instance.
  */
-void at_parser_expect_dataprompt(struct at_parser *parser);
+void at_parser_expect_dataprompt(struct at_parser *parser, const char *prompt);
 
 /**
  * Inform the parser that a command will be invoked. Causes a response callback

@@ -146,6 +146,10 @@ void at_free(struct at *at)
     if(priv->xTask != NULL) {
         vTaskDelete(priv->xTask);
     }
+    /* delete the semaphore */
+    if(priv->xSem != NULL) {
+        vSemaphoreDelete(priv->xSem);
+    }
 }
 
 void at_set_callbacks(struct at *at, const struct at_callbacks *cbs, void *arg)

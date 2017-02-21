@@ -60,7 +60,6 @@ static const char *const sim800_urc_responses[] = {
     "+BTPAIR: ",        /* BT paired */
     "+BTCONNECTING: ",  /* BT connecting request notification */
     "+BTCONNECT: ",     /* BT connected */
-    "+BTDISCONN: ",     /* BT disconnected */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */
@@ -134,8 +133,6 @@ static void handle_urc(const char *line, size_t len, void *arg)
       }
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
-    } else if(!strncmp(line, "+BTDISCONN: \"Druid_Tech\"", strlen("+BTDISCONN: \"Druid_Tech\""))) {
-      priv->spp_status = SIM800_SOCKET_STATUS_UNKNOWN;
     }
     return;
 }
@@ -698,11 +695,28 @@ static enum at_response_type scanner_cipclose(const char *line, size_t len, void
     return AT_RESPONSE_UNKNOWN;
 }
 
+static enum at_response_type scanner_btclose(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    /* There are response lines after OK. Keep reading. */
+    if (!strcmp(line, "OK"))
+        return AT_RESPONSE_INTERMEDIATE;
+    /* Wait for +BTDISCONN */
+    if(!strncmp(line, "+BTDISCONN: \"Druid_Tech\"", strlen("+BTDISCONN: \"Druid_Tech\""))) {
+        return AT_RESPONSE_FINAL_OK;
+    }
+    return AT_RESPONSE_UNKNOWN;
+}
+
 int sim800_socket_close(struct cellular *modem, int connid)
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
     if(connid == SIM800_NSOCKETS) {
+      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+      at_set_command_scanner(modem->at, scanner_btclose);
       at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);
     } else if(connid < SIM800_NSOCKETS) {
       at_set_timeout(modem->at, AT_TIMEOUT_LONG);

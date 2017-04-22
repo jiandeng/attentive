@@ -84,7 +84,7 @@ struct cellular_ops {
 //    /** Get network date and time. */
 //    int (*clock_ntptime)(struct cellular *modem, struct timespec *ts);
 
-    int (*socket_connect)(struct cellular *modem, int connid, const char *host, uint16_t port);
+    int (*socket_connect)(struct cellular *modem, const char *host, uint16_t port);
     ssize_t (*socket_send)(struct cellular *modem, int connid, const void *buffer, size_t amount, int flags);
     ssize_t (*socket_recv)(struct cellular *modem, int connid, void *buffer, size_t length, int flags);
     int (*socket_waitack)(struct cellular *modem, int connid);

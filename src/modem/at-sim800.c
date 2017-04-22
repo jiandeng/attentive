@@ -411,37 +411,50 @@ static int sim800_pdp_close(struct cellular *modem)
 }
 
 
-static int sim800_socket_connect(struct cellular *modem, int connid, const char *host, uint16_t port)
+static int sim800_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
+    int connid = -1;
 
-    if(connid == SIM800_NSOCKETS) {
-      if(cellular_sim800_bt_enable(modem) != 0) {
-        return -1;
-      }
-      for (int i=0; i<SIM800_SPP_CONNECT_TIMEOUT; i++) {
-        if(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status) {
-          return 0;
-        } else if(SIM800_SOCKET_STATUS_ERROR == priv->spp_status) {
-          return -1;
+    if(host == NULL && port == 0) {
+        // SPP connection
+        connid = SIM800_NSOCKETS;
+        if(cellular_sim800_bt_enable(modem) != 0) {
+            return -1;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-      }
-    } else if(connid < SIM800_NSOCKETS) {
-      /* Send connection request. */
-      at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-      priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
-      cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
+        for(int i = 0; i < SIM800_SPP_CONNECT_TIMEOUT; i++) {
+            if(SIM800_SOCKET_STATUS_CONNECTED == priv->spp_status) {
+                return connid;
+            } else if(SIM800_SOCKET_STATUS_ERROR == priv->spp_status) {
+                return -1;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    // TCP connection
+    } else {
+        for(int i = 0; i < SIM800_NSOCKETS; i++) {
+            if(SIM800_SOCKET_STATUS_UNKNOWN == priv->socket_status[i]) {
+                connid = i;
+                break;
+            }
+        }
+        if(connid < 0) {
+            return -1;
+        }
+        /* Send connection request. */
+        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
+        cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
 
-      /* Wait for socket status URC. */
-      for (int i=0; i<SIM800_TCP_CONNECT_TIMEOUT; i++) {
-          if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
-              return 0;
-          } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
-              return -1;
-          }
-          vTaskDelay(pdMS_TO_TICKS(1000));
-      }
+        /* Wait for socket status URC. */
+        for (int i=0; i<SIM800_TCP_CONNECT_TIMEOUT; i++) {
+            if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
+                return connid;
+            } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
+                return -1;
+            }
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
     }
 
     return -1;
@@ -721,10 +734,12 @@ int sim800_socket_close(struct cellular *modem, int connid)
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_set_command_scanner(modem->at, scanner_btclose);
       at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);
-    } else if(connid < SIM800_NSOCKETS) {
+    } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       at_set_timeout(modem->at, AT_TIMEOUT_LONG);
       at_set_command_scanner(modem->at, scanner_cipclose);
       at_command_simple(modem->at, "AT+CIPCLOSE=%d", connid);
+
+      priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
     }
     return 0;
 }

@@ -418,7 +418,7 @@ static int sim800_socket_connect(struct cellular *modem, const char *host, uint1
 
     if(host == NULL && port == 0) {
         // SPP connection
-        connid = SIM800_NSOCKETS;
+        connid = CELLULAR_BT_CONNID ;
         if(cellular_sim800_bt_enable(modem) != 0) {
             return -1;
         }
@@ -484,7 +484,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
     (void) flags;
-    if(connid == SIM800_NSOCKETS) {
+    if(connid == CELLULAR_BT_CONNID) {
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
@@ -497,7 +497,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       /* Send raw data. */
       at_set_command_scanner(modem->at, scanner_cipsend);
       at_command_raw_simple(modem->at, buffer, amount);
-    } else if(connid < SIM800_NSOCKETS) {
+    } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
@@ -566,7 +566,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
     int cnt = 0;
     // TODO its dumb and exceptions should be handled in other right way
     // FIXME: It has to be changed. Leave for now
-    if(connid == SIM800_NSOCKETS) {
+    if(connid == CELLULAR_BT_CONNID) {
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         DBG_I(">>>>DISCONNECTED\r\n");
         return -1;
@@ -620,7 +620,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           cnt += read;
       }
     }
-    else if(connid < SIM800_NSOCKETS) {
+    else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
         DBG_I(">>>>DISCONNECTED\r\n");
         return -1;
@@ -679,9 +679,9 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
 static int sim800_socket_waitack(struct cellular *modem, int connid)
 {
     const char *response;
-    if(connid == SIM800_NSOCKETS) {
+    if(connid == CELLULAR_BT_CONNID) {
       return 0;
-    } else if(connid < SIM800_NSOCKETS) {
+    } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       for (int i=0; i<SIM800_WAITACK_TIMEOUT; i++) {
           /* Read number of bytes waiting. */
@@ -730,7 +730,7 @@ int sim800_socket_close(struct cellular *modem, int connid)
 {
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
-    if(connid == SIM800_NSOCKETS) {
+    if(connid == CELLULAR_BT_CONNID) {
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_set_command_scanner(modem->at, scanner_btclose);
       at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);

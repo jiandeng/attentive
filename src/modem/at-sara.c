@@ -24,6 +24,7 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 #define AUTOBAUD_ATTEMPTS         10
 #define WAITACK_TIMEOUT           40
 #define TCP_CONNECT_TIMEOUT       40
+#define PWROFF_TIMEOUT            40
 #define SARA_NSOCKETS             6
 
 enum socket_status {
@@ -201,6 +202,16 @@ static int sara_pdp_close(struct cellular *modem)
     return 0;
 }
 
+static int sara_shutdown(struct cellular *modem)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT");
+
+    at_set_timeout(modem->at, PWROFF_TIMEOUT);
+    at_command_simple(modem->at, "AT+CPWROFF");
+
+    return 0;
+}
 
 static int sara_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
@@ -394,6 +405,7 @@ static const struct cellular_ops sara_ops = {
 
     .pdp_open = sara_pdp_open,
     .pdp_close = sara_pdp_close,
+    .shutdown = sara_shutdown,
 
     .imei = cellular_op_imei,
     .iccid = cellular_op_iccid,

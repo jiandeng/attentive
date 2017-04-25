@@ -55,6 +55,7 @@ struct cellular_ops {
     int (*detach)(struct cellular *modem);
     int (*pdp_open)(struct cellular *modem, const char *apn);
     int (*pdp_close)(struct cellular *modem);
+    int (*shutdown)(struct cellular *modem);
 
     /** Read GSM modem serial number (IMEI). */
     int (*imei)(struct cellular *modem, char *buf, size_t len);

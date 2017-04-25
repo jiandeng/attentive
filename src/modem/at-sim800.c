@@ -410,6 +410,27 @@ static int sim800_pdp_close(struct cellular *modem)
     return 0;
 }
 
+static enum at_response_type scanner_shutdown(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    if (!strcmp(line, "NORMAL POWER DOWN"))
+        return AT_RESPONSE_FINAL_OK;
+    return AT_RESPONSE_UNKNOWN;
+}
+
+static int sim800_shutdown(struct cellular *modem)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT");
+
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_set_command_scanner(modem->at, scanner_shutdown);
+    at_command_simple(modem->at, "AT+CPOWD=1");
+
+    return 0;
+}
 
 static int sim800_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
@@ -750,6 +771,7 @@ static const struct cellular_ops sim800_ops = {
 
     .pdp_open = sim800_pdp_open,
     .pdp_close = sim800_pdp_close,
+    .shutdown = sim800_shutdown,
 
     .imei = cellular_op_imei,
     .iccid = cellular_op_iccid,

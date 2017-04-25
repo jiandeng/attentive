@@ -105,7 +105,7 @@ int at_open(struct at *at)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    priv->xUART = FreeRTOS_open(boardGSM_SIM800_UART, 0);
+    priv->xUART = FreeRTOS_open(boardCELL_UART, 0);
     if(priv->xUART == NULL) {
         return -1;
     } else {

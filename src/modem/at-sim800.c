@@ -68,6 +68,7 @@ static const char *const sim800_urc_responses[] = {
     "DST: ",            /* AT+CLTS dst information */
     "+CIEV: ",          /* AT+CLTS undocumented indicator */
     "RDY",              /* Assorted crap on newer firmware releases. */
+    "+CFUN:",
     "+CPIN: READY",
     "Call Ready",
     "SMS Ready",
@@ -134,7 +135,6 @@ static void handle_urc(const char *line, size_t len, void *arg)
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
     }
-    return;
 }
 
 static const struct at_callbacks sim800_callbacks = {
@@ -199,7 +199,6 @@ static int sim800_attach(struct cellular *modem)
     static const char *const init_strings[] = {
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
 //        "AT+IFC=0,0",                   /* Disable hardware flow control. */
-        "AT+CFUN=1",                    /* Enable full functionality. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
@@ -209,8 +208,12 @@ static int sim800_attach(struct cellular *modem)
     for (const char *const *command=init_strings; *command; command++)
         at_command_simple(modem->at, "%s", *command);
 
-    /* Configure IP application. */
+    /* Enable full functionality */
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_command_simple(modem->at, "AT+CFUN=1");
 
+    /* Configure IP application. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Switch to multiple connections mode; it's less buggy. */
     if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
         return -1;

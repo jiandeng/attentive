@@ -202,7 +202,7 @@ static int sim800_attach(struct cellular *modem)
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
-        "AT&W0",                        /* Save configuration. */
+//        "AT&W0",                        /* Save configuration. */
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)

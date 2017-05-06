@@ -26,7 +26,7 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 #define UPSDA_TIMEOUT             40  // Should be 150 seconds, According to the AT_Command_Manual
 #define TCP_CONNECT_TIMEOUT       20  // According to the AT_Command_Manual
 #define PWROFF_TIMEOUT            40  // According to the AT_Command_Manual
-#define SARA_NSOCKETS             6
+#define SARA_NSOCKETS             7   // According to the AT_Command_Manual
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,

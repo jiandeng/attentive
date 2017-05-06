@@ -22,9 +22,10 @@
 DBG_SET_LEVEL(DBG_LEVEL_D);
 
 #define AUTOBAUD_ATTEMPTS         10
-#define WAITACK_TIMEOUT           40
-#define TCP_CONNECT_TIMEOUT       40
-#define PWROFF_TIMEOUT            40
+#define WAITACK_TIMEOUT           24  // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
+#define UPSDA_TIMEOUT             40  // Should be 150 seconds, According to the AT_Command_Manual
+#define TCP_CONNECT_TIMEOUT       20  // According to the AT_Command_Manual
+#define PWROFF_TIMEOUT            40  // According to the AT_Command_Manual
 #define SARA_NSOCKETS             6
 
 enum socket_status {
@@ -182,7 +183,7 @@ static int sara_pdp_open(struct cellular *modem, const char *apn)
     /* at_command_simple(modem->at, "AT+UPSD=0,3,\"%s\"", pwd); */
     /* at_command_simple(modem->at, "AT+UPSD=0,6,\"%s\"", auth); */
     at_command_simple(modem->at, "AT+UPSD=0,7,\"0.0.0.0\"");
-    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_set_timeout(modem->at, UPSDA_TIMEOUT);
     at_command_simple(modem->at, "AT+UPSDA=0,3");
     /* Read local IP address. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);

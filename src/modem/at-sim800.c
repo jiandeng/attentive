@@ -124,7 +124,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sim800 *priv = arg;
 
-    DBG_D("U> %s\r\n", line);
+    DBG_V("U> %s\r\n", line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1");

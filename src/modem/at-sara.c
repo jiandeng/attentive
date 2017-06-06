@@ -80,7 +80,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sara *priv = arg;
 
-    DBG_D("U> %s\r\n", line);
+    DBG_V("U> %s\r\n", line);
 
     int connid = -1;
     if(sscanf(line, "UUSOCL: %d", &connid) == 1) {

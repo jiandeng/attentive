@@ -176,7 +176,7 @@ static void parser_handle_line(struct at_parser *parser)
     size_t len = parser->buf_used - parser->buf_current;
 
     /* Log the received line. */
-    DBG_V(">> %s (%d)\r\n", line, len);
+    DBG_V(">> %s\r\n", line);
 
     /* Determine response type. */
     enum at_response_type type = AT_RESPONSE_UNKNOWN;

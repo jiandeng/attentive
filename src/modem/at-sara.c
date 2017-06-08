@@ -377,6 +377,7 @@ static int sara_socket_close(struct cellular *modem, int connid)
     struct cellular_sara *priv = (struct cellular_sara *) modem;
 
     if(priv->socket_status[connid] == SOCKET_STATUS_CONNECTED) {
+        priv->socket_status[connid] = SOCKET_STATUS_UNKNOWN;
         at_set_timeout(modem->at, AT_TIMEOUT_LONG);
         at_command_simple(modem->at, "AT+USOCL=%d", connid);
     }

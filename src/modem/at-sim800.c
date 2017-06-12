@@ -610,12 +610,6 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
 
           /* Find the header line. */
           int read;
-          // TODO:
-          // 1. connid is not checked
-          // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
-          // then wierd things can happen. see memcpy
-          // requested should be equal to chunk
-          // confirmed is that what can be read
 //          at_simple_scanf(response, "+BTSPPGET: %*d,%d", &read);
           if(sscanf(response, "+BTSPPGET: %*d,%d", &read) != 1) {
               DBG_I(">>>>BAD RESPONSE\r\n");
@@ -661,13 +655,8 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
               return -1;
           }
           /* Find the header line. */
-          int read, left;
-          // TODO:
-          // 1. connid is not checked
-          // 2. there is possible a bug here. if not all data are ready (confirmed < requested)
-          // then wierd things can happen. see memcpy
-          // requested should be equal to chunk
-          // confirmed is that what can be read
+          int read, left; // data read from the receive buffer & data left in the receive buffer
+          // TODO: connid is not checked
 //          at_simple_scanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left);
           if(sscanf(response, "+CIPRXGET: 2,%*d,%d,%d", &read, &left) != 2) {
               DBG_I(">>>>BAD RESPONSE\r\n");
@@ -676,8 +665,9 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
 
           /* Bail out if we're out of data. */
           /* FIXME: We should maybe block until we receive something? */
-          if (read == 0)
-              break;
+          if (read == 0) {
+               break;
+          }
 
           /* Locate the payload. */
           /* TODO: what if no \n is in input stream?
@@ -691,6 +681,11 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           /* Copy payload to result buffer. */
           memcpy((char *)buffer + cnt, data, read);
           cnt += read;
+
+          /* Bail out if we're out of data. */
+          if(left == 0) {
+              break;
+          }
       }
     }
 
@@ -704,7 +699,7 @@ static int sim800_socket_waitack(struct cellular *modem, int connid)
       return 0;
     } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-      for (int i=0; i<SIM800_WAITACK_TIMEOUT; i++) {
+      for (int i=0; i<SIM800_WAITACK_TIMEOUT*2; i++) {
           /* Read number of bytes waiting. */
           int nacklen;
           response = at_command(modem->at, "AT+CIPACK=%d", connid);
@@ -714,7 +709,7 @@ static int sim800_socket_waitack(struct cellular *modem, int connid)
           if (nacklen == 0)
               return 0;
 
-          vTaskDelay(pdMS_TO_TICKS(1000));
+          vTaskDelay(pdMS_TO_TICKS(500));
       }
     }
     return -1;

@@ -355,7 +355,7 @@ static int sara_socket_waitack(struct cellular *modem, int connid)
 
     if(priv->socket_status[connid] == SOCKET_STATUS_CONNECTED) {
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        for (int i=0; i<WAITACK_TIMEOUT; i++) {
+        for (int i=0; i<WAITACK_TIMEOUT*2; i++) {
             /* Read number of bytes waiting. */
             int nack;
             const char *response = at_command(modem->at, "AT+USOCTL=%d,11", connid);
@@ -366,7 +366,7 @@ static int sara_socket_waitack(struct cellular *modem, int connid)
                 return 0;
             }
 
-            vTaskDelay(pdMS_TO_TICKS(1000));
+            vTaskDelay(pdMS_TO_TICKS(500));
         }
     }
     return -1;

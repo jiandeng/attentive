@@ -181,6 +181,31 @@ int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
     return 0;
 }
 
+int cellular_op_cnum(struct cellular *modem, char *buf, size_t len)
+{
+    memset(buf, 0, len);
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+CNUM");
+    if(response == NULL) {
+        return -1;
+    } else if(*response != '\0') {
+        at_simple_scanf(response, "+CNUM: %*[^,],\"%[^\"]\"%*s", buf);
+    }
+
+    return 0;
+
+}
+
+int cellular_op_onum(struct cellular *modem, char *num)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT+CPBS=\"ON\"");
+    at_command_simple(modem->at, "AT+CPBW=1,\"%s\"", num);
+
+    return 0;
+}
+
 //int cellular_op_clock_gettime(struct cellular *modem, struct timespec *ts)
 //{
 //    struct tm tm;

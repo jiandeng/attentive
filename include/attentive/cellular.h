@@ -29,6 +29,7 @@
 #define CELLULAR_ICCID_LENGTH 19
 #define CELLULAR_IMSI_LENGTH 15
 #define CELLULAR_MAC_LENGTH 17
+#define CELLULAR_NUM_LENGTH 19
 #define CELLULAR_BT_CONNID 1000
 
 enum {
@@ -78,6 +79,10 @@ struct cellular_ops {
     int (*ats0)(struct cellular *modem);
     /** Send SMS. */
     int (*sms)(struct cellular *modem, char* num, char* msg, size_t len);
+    /** Read own phone number. */
+    int (*cnum)(struct cellular *modem, char *buf, size_t len);
+    /** Write own phone number. */
+    int (*onum)(struct cellular *modem, char *num);
 
 //    /** Read RTC date and time. Compatible with clock_gettime(). */
 //    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);

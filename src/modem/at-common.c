@@ -156,7 +156,7 @@ int cellular_op_ats0(struct cellular *modem)
 int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
 {
     // Check SMS length
-    if(len > 140) {
+    if(len > 160) {
       return -1;
     }
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
@@ -169,8 +169,9 @@ int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
     at_command_simple(modem->at, "AT+CMGS=\"%s\"", num);
     // SMS data
     at_set_timeout(modem->at, AT_TIMEOUT_SMS);
-    msg[len - 1] = 0x1A;
-    const char* response = at_command_raw(modem->at, msg, len);
+    at_send_raw(modem->at, msg, len);
+    char c = 0x1A;
+    const char* response = at_command_raw(modem->at, &c, sizeof(c));
     if(response == NULL) {
       return -1;  // timeout
     }

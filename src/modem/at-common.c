@@ -160,8 +160,8 @@ int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
       return -1;
     }
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    // SMS Center
-    at_config_simple(modem->at, "CSCA", "\"+8613010811500\"", 30);
+    // // SMS Center
+    // at_config_simple(modem->at, "CSCA", "\"+8613010811500\"", 30);
     // Text mode
     at_command_simple(modem->at, "AT+CMGF=1");
     // SMS command

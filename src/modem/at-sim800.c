@@ -220,6 +220,23 @@ static int sim800_detach(struct cellular *modem)
     return 0;
 }
 
+static int sim800_suspend(struct cellular *modem)
+{
+    at_command(modem->at, "AT+CSCLK=2");
+    at_suspend(modem->at);
+
+    return 0;
+}
+
+static int sim800_resume(struct cellular *modem)
+{
+    at_resume(modem->at);
+    at_command(modem->at, "AT");
+    at_command_simple(modem->at, "AT");
+
+    return 0;
+}
+
 //static int sim800_clock_gettime(struct cellular *modem, struct timespec *ts)
 //{
 //    /* TODO: See CYC-1255. */
@@ -762,6 +779,9 @@ int sim800_socket_close(struct cellular *modem, int connid)
 static const struct cellular_ops sim800_ops = {
     .attach = sim800_attach,
     .detach = sim800_detach,
+
+    .suspend = sim800_suspend,
+    .resume = sim800_resume,
 
     .pdp_open = sim800_pdp_open,
     .pdp_close = sim800_pdp_close,

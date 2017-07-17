@@ -54,6 +54,22 @@ int at_open(struct at *at);
 int at_close(struct at *at);
 
 /**
+ * Suspend the AT channel.
+ *
+ * @param at AT channel instance.
+ * @returns Zero on success, -1 and sets errno on failure.
+ */
+int at_suspend(struct at *at);
+
+/**
+ * Resume the AT channel.
+ *
+ * @param at AT channel instance.
+ * @returns Zero on success, -1 and sets errno on failure.
+ */
+int at_resume(struct at *at);
+
+/**
  * Close and free an AT channel instance.
  *
  * @param at AT channel instance.

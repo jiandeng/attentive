@@ -150,6 +150,28 @@ void at_free(struct at *at)
     }
 }
 
+int at_suspend(struct at *at)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    if(priv != NULL && priv->xTask != NULL) {
+        vTaskSuspend(priv->xTask);
+    }
+
+    return 0;
+}
+
+int at_resume(struct at *at)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    if(priv != NULL && priv->xTask != NULL) {
+        vTaskResume(priv->xTask);
+    }
+
+    return 0;
+}
+
 void at_set_callbacks(struct at *at, const struct at_callbacks *cbs, void *arg)
 {
     at->cbs = cbs;

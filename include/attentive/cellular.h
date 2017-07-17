@@ -52,6 +52,8 @@ struct cellular {
 };
 
 struct cellular_ops {
+    int (*suspend)(struct cellular *modem);
+    int (*resume)(struct cellular *modem);
     int (*attach)(struct cellular *modem);
     int (*detach)(struct cellular *modem);
     int (*pdp_open)(struct cellular *modem, const char *apn);

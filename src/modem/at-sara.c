@@ -413,6 +413,7 @@ static const struct cellular_ops sara_ops = {
     .iccid = cellular_op_iccid,
     .imsi = cellular_op_imsi,
     .creg = cellular_op_creg,
+    .cgatt = cellular_op_cgatt,
     .rssi = cellular_op_rssi,
     .cops = sara_op_cops,
     .test = cellular_op_test,

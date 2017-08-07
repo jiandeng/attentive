@@ -59,6 +59,7 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len);
 int cellular_op_iccid(struct cellular *modem, char *buf, size_t len);
 int cellular_op_imsi(struct cellular *modem, char *buf, size_t len);
 int cellular_op_creg(struct cellular *modem);
+int cellular_op_cgatt(struct cellular *modem);
 int cellular_op_rssi(struct cellular *modem);
 int cellular_op_cops(struct cellular *modem);
 int cellular_op_test(struct cellular *modem);

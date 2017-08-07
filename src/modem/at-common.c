@@ -114,6 +114,17 @@ int cellular_op_creg(struct cellular *modem)
     return creg;
 }
 
+int cellular_op_cgatt(struct cellular *modem)
+{
+    int cgatt;
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+CGATT?");
+    at_simple_scanf(response, "+CGATT: %d", &cgatt);
+
+    return cgatt;
+}
+
 int cellular_op_rssi(struct cellular *modem)
 {
     int rssi;

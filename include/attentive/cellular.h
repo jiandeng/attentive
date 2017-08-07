@@ -69,6 +69,8 @@ struct cellular_ops {
 
     /** Get network registration status. */
     int (*creg)(struct cellular *modem);
+    /** Get network attach status. */
+    int (*cgatt)(struct cellular *modem);
     /** Get signal strength. */
     int (*rssi)(struct cellular *modem);
     /** Get the current operator. */

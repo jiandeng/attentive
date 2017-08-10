@@ -22,11 +22,11 @@
 DBG_SET_LEVEL(DBG_LEVEL_D);
 
 #define AUTOBAUD_ATTEMPTS         10
-#define WAITACK_TIMEOUT           24  // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
-#define UPSDA_TIMEOUT             40  // Should be 150 seconds, According to the AT_Command_Manual
-#define TCP_CONNECT_TIMEOUT       20  // According to the AT_Command_Manual
-#define PWROFF_TIMEOUT            40  // According to the AT_Command_Manual
-#define SARA_NSOCKETS             7   // According to the AT_Command_Manual
+#define WAITACK_TIMEOUT           24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
+#define UPSDA_TIMEOUT             40        // Should be 150 seconds, According to the AT_Command_Manual
+#define TCP_CONNECT_TIMEOUT       (20 + 3)  // According to the AT_Command_Manual
+#define PWROFF_TIMEOUT            (40 + 3)  // According to the AT_Command_Manual
+#define SARA_NSOCKETS             7         // According to the AT_Command_Manual
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,

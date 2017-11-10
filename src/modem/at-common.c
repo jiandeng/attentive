@@ -156,6 +156,12 @@ int cellular_op_test(struct cellular *modem)
     return 0;
 }
 
+const char* cellular_op_command(struct cellular *modem, char *cmd, int timeout)
+{
+    at_set_timeout(modem->at, timeout);
+    return at_command(modem->at, cmd);
+}
+
 int cellular_op_ats0(struct cellular *modem)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);

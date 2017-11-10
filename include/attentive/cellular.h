@@ -77,6 +77,8 @@ struct cellular_ops {
     int (*cops)(struct cellular *modem);
     /** Test the at channel. */
     int (*test)(struct cellular *modem);
+    /** Execute an at command and return result. */
+    const char* (*command)(struct cellular *modem, char* cmd, int timeout);
     /** Enable auto answer calls. */
     int (*ats0)(struct cellular *modem);
     /** Send SMS. */

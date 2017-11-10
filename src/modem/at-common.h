@@ -63,6 +63,7 @@ int cellular_op_cgatt(struct cellular *modem);
 int cellular_op_rssi(struct cellular *modem);
 int cellular_op_cops(struct cellular *modem);
 int cellular_op_test(struct cellular *modem);
+const char* cellular_op_command(struct cellular *modem, char *cmd, int timeout);
 int cellular_op_ats0(struct cellular *modem);
 int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len);
 int cellular_op_cnum(struct cellular *modem, char *buf, size_t len);

@@ -37,11 +37,11 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
  */
 
 #define SIM800_AUTOBAUD_ATTEMPTS    10
+#define SIM800_CONFIG_RETRIES       10
 #define SIM800_WAITACK_TIMEOUT      24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define SIM800_CIICR_TIMEOUT        (85 + 3)  // According to the AT_Command_Manual
 #define SIM800_TCP_CONNECT_TIMEOUT  (75 + 3)  // According to the AT_Command_Manual
 #define SIM800_SPP_CONNECT_TIMEOUT  60        // You might wanner fixme
-#define SIM800_CIPCFG_RETRIES       10
 #define SIM800_NSOCKETS             6
 #define NTP_BUF_SIZE                4
 
@@ -157,16 +157,18 @@ static int sim800_config(struct cellular *modem, const char *option, const char 
         /* Query the setting status. */
         const char *response = at_command(modem->at, "AT+%s?", option);
         /* Bail out on timeouts. */
-        if (response == NULL)
+        if (response == NULL) {
             return -1;
+        }
 
         /* Check if the setting has the correct value. */
         char expected[16];
         if (snprintf(expected, sizeof(expected), "+%s: %s", option, value) >= (int) sizeof(expected)) {
             return -1;
         }
-        if (!strcmp(response, expected))
+        if (!strcmp(response, expected)) {
             return 0;
+        }
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -195,6 +197,9 @@ static int sim800_attach(struct cellular *modem)
     /* Disable local echo again; make sure it was disabled successfully. */
     at_command_simple(modem->at, "ATE0");
 
+    /* Delay 2 seconds to continue */
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
     /* Initialize modem. */
     static const char *const init_strings[] = {
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
@@ -205,24 +210,40 @@ static int sim800_attach(struct cellular *modem)
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };
-    for (const char *const *command=init_strings; *command; command++)
+    for (const char *const *command=init_strings; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
+    }
 
     /* Enable full functionality */
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-    at_command_simple(modem->at, "AT+CFUN=1");
+    for (int i=0; i < SIM800_CONFIG_RETRIES; i++) {
+        const char* response = at_command(modem->at, "AT+CFUN=1");
+        if(response == NULL) {
+            // timeout
+            return -1;
+        } else if(*response == '\0') {
+            // ok
+            break;
+        } else {
+            // error
+            vTaskDelay(pdMS_TO_TICKS(1000));
+        }
+    }
 
     /* Configure IP application. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Switch to multiple connections mode; it's less buggy. */
-    if (sim800_config(modem, "CIPMUX", "1", SIM800_CIPCFG_RETRIES) != 0)
+    if (sim800_config(modem, "CIPMUX", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
+    }
     /* Receive data manually. */
-    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CIPCFG_RETRIES) != 0)
+    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
+    }
     /* Enable quick send mode. */
-    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CIPCFG_RETRIES) != 0)
+    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
+    }
 
     return 0;
 }

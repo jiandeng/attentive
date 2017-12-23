@@ -39,8 +39,8 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 #define SIM800_AUTOBAUD_ATTEMPTS    10
 #define SIM800_CONFIG_RETRIES       10
 #define SIM800_WAITACK_TIMEOUT      24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
-#define SIM800_CIICR_TIMEOUT        (85 + 3)  // According to the AT_Command_Manual
-#define SIM800_TCP_CONNECT_TIMEOUT  (75 + 3)  // According to the AT_Command_Manual
+#define SIM800_CIICR_TIMEOUT        (85 + 10)  // According to the AT_Command_Manual
+#define SIM800_TCP_CONNECT_TIMEOUT  (75 + 10)  // According to the AT_Command_Manual
 #define SIM800_SPP_CONNECT_TIMEOUT  60        // You might wanner fixme
 #define SIM800_NSOCKETS             6
 #define NTP_BUF_SIZE                4

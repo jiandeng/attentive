@@ -46,11 +46,9 @@ static void handle_response(const char *buf, size_t len, void *arg)
     struct at_freertos *priv = (struct at_freertos *) arg;
 
     /* The mutex is held by the reader thread; don't reacquire. */
+    len = len < AT_BUF_SIZE - 1 ? len : AT_BUF_SIZE - 1;
     memcpy(priv->response, buf, len);
-    if(len < AT_BUF_SIZE) {
-        priv->response[len] = 0;
-    }
-    (void) len;
+    priv->response[len] = '\0';
     priv->waiting = false;
     xSemaphoreGive(priv->xSem);
 }
@@ -275,8 +273,7 @@ bool _at_send(struct at_freertos *priv, const void *data, size_t size)
 
     /* Send the command. */
     // FIXME: handle interrupts, short writes, errors, etc.
-    FreeRTOS_write(priv->xUART, data, size);
-    return true;
+    return FreeRTOS_write(priv->xUART, data, size) == size;
 }
 
 bool at_send(struct at *at, const char *format, ...)
@@ -343,8 +340,6 @@ void at_reader_thread(void *arg)
 {
     struct at_freertos *priv = (struct at_freertos *)arg;
 
-//    printf("at_reader_thread: starting\n");
-
     while (true) {
         if (!priv->running) {
             vTaskDelay(pdMS_TO_TICKS(200));
@@ -374,8 +369,6 @@ void at_reader_thread(void *arg)
         }
         /*xSemaphoreGive(priv->xMutex);*/
     }
-
-//    printf("at_reader_thread: finished\n");
 
 }
 

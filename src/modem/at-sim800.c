@@ -590,11 +590,12 @@ static char character_handler_btsppget(char ch, char *line, size_t len, void *ar
     int read;
 
     if(ch == ',') {
-      line[len] = '\0';
-      if (sscanf(line, "+BTSPPGET: %*d,%d,", &read) == 1) {
+      line[len - 1] = '\0';
+      if(sscanf(line, "+BTSPPGET: %*d,%d", &read) == 1) {
         at_set_character_handler(priv, NULL);
         ch = '\n';
       }
+      line[len - 1] = ',';
     }
 
     return ch;

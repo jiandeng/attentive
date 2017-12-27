@@ -103,7 +103,7 @@ void at_parser_await_response(struct at_parser *parser)
 
 bool at_prefix_in_table(const char *line, const char *const table[])
 {
-    for (int i=0; table[i] != NULL; i++)
+    for (int i = 0; table[i] != NULL; i++)
         if (!strncmp(line, table[i], strlen(table[i])))
             return true;
 
@@ -112,8 +112,6 @@ bool at_prefix_in_table(const char *line, const char *const table[])
 
 static enum at_response_type generic_line_scanner(const char *line, size_t len, struct at_parser *parser)
 {
-    (void) len;
-
     if (parser->state == STATE_DATAPROMPT && parser->dataprompt != NULL)
         if (len == strlen(parser->dataprompt) && !memcmp(line, parser->dataprompt, len))
             return AT_RESPONSE_FINAL_OK;
@@ -130,7 +128,7 @@ static enum at_response_type generic_line_scanner(const char *line, size_t len, 
 
 static void parser_append(struct at_parser *parser, char ch)
 {
-    if (parser->buf_used < parser->buf_size-1)
+    if (parser->buf_used < parser->buf_size - 1)
         parser->buf[parser->buf_used++] = ch;
 }
 
@@ -189,9 +187,7 @@ static void parser_handle_line(struct at_parser *parser)
     if (type == AT_RESPONSE_URC || parser->state == STATE_IDLE)
     {
         /* Fire the callback on the URC line. */
-        parser->cbs->handle_urc(parser->buf + parser->buf_current,
-                                parser->buf_used - parser->buf_current,
-                                parser->priv);
+        parser->cbs->handle_urc(line, len, parser->priv);
 
         /* Discard the URC line from the buffer. */
         parser_discard_line(parser);

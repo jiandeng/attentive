@@ -133,13 +133,13 @@ int cellular_op_cgatt(struct cellular *modem)
 
 int cellular_op_rssi(struct cellular *modem)
 {
-    int rssi;
+    int rssi, ber;
 
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT+CSQ");
-    at_simple_scanf(response, "+CSQ: %d,%*d", &rssi);
+    at_simple_scanf(response, "+CSQ: %d,%d", &rssi, &ber);
 
-    return rssi;
+    return rssi | (ber << 16);
 }
 
 int cellular_op_cops(struct cellular *modem)

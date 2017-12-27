@@ -524,7 +524,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
     return amount;
 }
 
-static enum at_response_type scanner_ciprxget(const char *line, size_t len, void *arg)
+static int scanner_ciprxget(const char *line, size_t len, void *arg)
 {
     (void) len;
     (void) arg;
@@ -537,7 +537,7 @@ static enum at_response_type scanner_ciprxget(const char *line, size_t len, void
     return AT_RESPONSE_UNKNOWN;
 }
 
-static enum at_response_type scanner_btsppget(const char *line, size_t len, void *arg)
+static int scanner_btsppget(const char *line, size_t len, void *arg)
 {
     (void) len;
     (void) arg;

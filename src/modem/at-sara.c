@@ -232,7 +232,7 @@ static ssize_t sara_socket_send(struct cellular *modem, int connid, const void *
     return written;
 }
 
-static enum at_response_type scanner_usord(const char *line, size_t len, void *arg)
+static int scanner_usord(const char *line, size_t len, void *arg)
 {
     (void) len;
     (void) arg;

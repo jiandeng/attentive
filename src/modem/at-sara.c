@@ -95,6 +95,9 @@ static const struct at_callbacks sara_callbacks = {
     .handle_urc = handle_urc,
 };
 
+
+
+
 static int sara_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &sara_callbacks, (void *) modem);
@@ -156,7 +159,7 @@ static int sara_pdp_open(struct cellular *modem, const char *apn)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *resp = at_command(modem->at, "AT+UPSND=0,0");
     if(resp == NULL) {
-      return -1;
+      return -2;
     }
 
     return 0;
@@ -283,7 +286,7 @@ static ssize_t sara_socket_recv(struct cellular *modem, int connid, void *buffer
         const char *response = at_command(modem->at, "AT+USORD=%d,%d", connid, chunk);
         if (response == NULL) {
             DBG_W(">>>>NO RESPONSE\r\n");
-            return -1;
+            return -2;
         }
         /* Find the header line. */
         int read;
@@ -360,6 +363,9 @@ static int sara_op_cops(struct cellular *modem)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT+COPS=3,2");
     const char *response = at_command(modem->at, "AT+COPS?");
+    if(response == NULL) {
+        return -2;
+    }
     int ret = sscanf(response, "+COPS: %*d,%*d,\"%d\",%d", &ops, &rat);
     if(ret == 2) {
         ops |= rat << 24;

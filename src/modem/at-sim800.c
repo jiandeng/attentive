@@ -185,7 +185,7 @@ static int sim800_attach(struct cellular *modem)
         const char* response = at_command(modem->at, "AT+CFUN=1");
         if(response == NULL) {
             // timeout
-            return -1;
+            return -2;
         } else if(*response == '\0') {
             // ok
             break;
@@ -318,7 +318,7 @@ static int sim800_ipstatus(struct cellular *modem)
     const char *response = at_command(modem->at, "AT+CIPSTATUS");
 
     if (response == NULL)
-        return -1;
+        return -2;
 
     const char *state = strstr(response, "STATE: ");
     if (!state) {
@@ -592,7 +592,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           const char *response = at_command(modem->at, "AT+BTSPPGET=3,%d,%d", priv->spp_connid, chunk);
           if (response == NULL) {
               DBG_W(">>>>NO RESPONSE\r\n");
-              return -1;
+              return -2;
           }
 
           /* Find the header line. */
@@ -639,7 +639,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           const char *response = at_command(modem->at, "AT+CIPRXGET=2,%d,%d", connid, chunk);
           if (response == NULL) {
               DBG_W(">>>>NO RESPONSE\r\n");
-              return -1;
+              return -2;
           }
           /* Find the header line. */
           int read, left; // data read from the receive buffer & data left in the receive buffer

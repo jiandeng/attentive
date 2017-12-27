@@ -65,6 +65,9 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT+CGSN");
+    if(response == NULL) {
+        return -2;
+    }
     if(strlen(response) == CELLULAR_IMEI_LENGTH) {
       strncpy(buf, response, len);
     } else {
@@ -79,6 +82,9 @@ int cellular_op_iccid(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
     const char *response = at_command(modem->at, "AT+CCID");
+    if(response == NULL) {
+        return -2;
+    }
     if(strlen(response) == CELLULAR_ICCID_LENGTH) {
       strncpy(buf, response, len);
     } else {
@@ -93,6 +99,9 @@ int cellular_op_imsi(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT+CIMI");
+    if(response == NULL) {
+        return -2;
+    }
     if(strlen(response) == CELLULAR_IMSI_LENGTH) {
       strncpy(buf, response, len);
     } else {
@@ -190,10 +199,10 @@ int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
     char c = 0x1A;
     const char* response = at_command_raw(modem->at, &c, sizeof(c));
     if(response == NULL) {
-      return -1;  // timeout
+        return -2;
     }
     if(strncmp(response, "+CMGS:", strlen("+CMGS:"))) {
-      return -1;  // response
+        return -1;
     }
 
     return 0;
@@ -206,8 +215,9 @@ int cellular_op_cnum(struct cellular *modem, char *buf, size_t len)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT+CNUM");
     if(response == NULL) {
-        return -1;
-    } else if(*response != '\0') {
+        return -2;
+    }
+    if(*response != '\0') {
         at_simple_scanf(response, "+CNUM: %*[^,],\"%[^\"]\"%*s", buf);
     }
 

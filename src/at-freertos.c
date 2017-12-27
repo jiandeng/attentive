@@ -320,7 +320,7 @@ int at_config(struct at *at, const char *option, const char *value, int attempts
         const char *response = at_command(at, "AT+%s?", option);
         /* Bail out on timeouts. */
         if (response == NULL) {
-            return -1;
+            return -2;
         }
         /* Check if the setting has the correct value. */
         char expected[32];

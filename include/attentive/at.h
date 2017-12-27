@@ -156,26 +156,30 @@ bool at_send_raw(struct at *at, const void *data, size_t size);
 int at_config(struct at *at, const char *option, const char *value, int attempts);
 
 /**
- * Send an AT command and return -1 if it doesn't return OK.
+ * Send an AT command and return:
+ *   -2 if it doesn't response
+ *   -1 if it doesn't return OK.
  */
 #define at_command_simple(at, cmd...)                                       \
     do {                                                                    \
         const char *_response = at_command(at, cmd);                        \
         if (!_response)                                                     \
-            return -1; /* timeout */                                        \
+            return -2;                                                      \
         if (strcmp(_response, "")) {                                        \
             return -1;                                                      \
         }                                                                   \
     } while (0)
 
 /**
- * Send raw data and return -1 if it doesn't return OK.
+ * Send raw data and return:
+ *   -2 if it doesn't response
+ *   -1 if it doesn't return OK.
  */
 #define at_command_raw_simple(at, cmd...)                                   \
     do {                                                                    \
         const char *_response = at_command_raw(at, cmd);                    \
         if (!_response)                                                     \
-            return -1; /* timeout */                                        \
+            return -2;                                                      \
         if (strcmp(_response, "")) {                                        \
             return -1;                                                      \
         }                                                                   \
@@ -188,12 +192,14 @@ int at_config(struct at *at, const char *option, const char *value, int attempts
 #define _NUMARGS(...) (sizeof((void *[]){0, ##__VA_ARGS__})/sizeof(void *)-1)
 
 /**
- * Scanf a response and return -1 if it fails.
+ * Scanf a response and return:
+ *   -2 if the response is null
+ *   -1 if scanf fails.
  */
 #define at_simple_scanf(_response, format, ...)                             \
     do {                                                                    \
         if (!_response)                                                     \
-            return -1; /* timeout */                                        \
+            return -2;                                                      \
         if (sscanf(_response, format, __VA_ARGS__) != _NUMARGS(__VA_ARGS__)) { \
             return -1;                                                      \
         }                                                                   \

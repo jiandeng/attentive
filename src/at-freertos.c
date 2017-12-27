@@ -310,30 +310,31 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
     return _at_send(priv, data, size);
 }
 
-bool at_config(struct at *at, const char *option, const char *value, int attempts)
+int at_config(struct at *at, const char *option, const char *value, int attempts)
 {
     for (int i = 0; i < attempts; i++) {
+        /* Blindly try to set the configuration option. */
+        at_command(at, "AT+%s=%s", option, value);
+
         /* Query the setting status. */
         const char *response = at_command(at, "AT+%s?", option);
         /* Bail out on timeouts. */
         if (response == NULL) {
-            return false;
+            return -1;
         }
         /* Check if the setting has the correct value. */
         char expected[32];
         if (snprintf(expected, sizeof(expected), "+%s: %s", option, value) >= (int) sizeof(expected)) {
-            return false;
+            return -1;
         }
         if (!strncmp(response, expected, strlen(expected))) {
-            return true;
+            return 0;
         }
-        /* Try to set the configuration option. */
-        at_command(at, "AT+%s=%s", option, value);
 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 
-    return false;
+    return 0;
 }
 
 void at_reader_thread(void *arg)

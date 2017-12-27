@@ -151,9 +151,9 @@ bool at_send_raw(struct at *at, const void *data, size_t size);
  * @param option the option to config.
  * @param value the value to set for the option.
  * @param attempts the number of attempts allowed.
- * @returns True if success.
+ * @returns Zero on success, -1 and sets errno on failure.
  */
-bool at_config(struct at *at, const char *option, const char *value, int attempts);
+int at_config(struct at *at, const char *option, const char *value, int attempts);
 
 /**
  * Send an AT command and return -1 if it doesn't return OK.
@@ -179,15 +179,6 @@ bool at_config(struct at *at, const char *option, const char *value, int attempt
         if (strcmp(_response, "")) {                                        \
             return -1;                                                      \
         }                                                                   \
-    } while (0)
-
-/**
- * Config an option and return -1 if it doesn't return OK.
- */
-#define at_config_simple(at, option, value, attempts)                       \
-    do {                                                                    \
-        if(!at_config(at, option, value, attempts))                         \
-            return -1;                                                      \
     } while (0)
 
 /**

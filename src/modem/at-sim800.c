@@ -142,41 +142,6 @@ static const struct at_callbacks sim800_callbacks = {
     .handle_urc = handle_urc,
 };
 
-
-/**
- * SIM800 IP configuration commands fail if the IP application is running,
- * even though the configuration settings are already right. The following
- * monkey dance is therefore needed.
- */
-static int sim800_config(struct cellular *modem, const char *option, const char *value, int attempts)
-{
-    for (int i=0; i<attempts; i++) {
-        /* Blindly try to set the configuration option. */
-        at_command(modem->at, "AT+%s=%s", option, value);
-
-        /* Query the setting status. */
-        const char *response = at_command(modem->at, "AT+%s?", option);
-        /* Bail out on timeouts. */
-        if (response == NULL) {
-            return -1;
-        }
-
-        /* Check if the setting has the correct value. */
-        char expected[16];
-        if (snprintf(expected, sizeof(expected), "+%s: %s", option, value) >= (int) sizeof(expected)) {
-            return -1;
-        }
-        if (!strcmp(response, expected)) {
-            return 0;
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-
-    return -1;
-}
-
-
 static int sim800_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &sim800_callbacks, (void *) modem);
@@ -233,15 +198,15 @@ static int sim800_attach(struct cellular *modem)
     /* Configure IP application. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Switch to multiple connections mode; it's less buggy. */
-    if (sim800_config(modem, "CIPMUX", "1", SIM800_CONFIG_RETRIES) != 0) {
+    if (at_config(modem->at, "CIPMUX", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
     }
     /* Receive data manually. */
-    if (sim800_config(modem, "CIPRXGET", "1", SIM800_CONFIG_RETRIES) != 0) {
+    if (at_config(modem->at, "CIPRXGET", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
     }
     /* Enable quick send mode. */
-    if (sim800_config(modem, "CIPQSEND", "1", SIM800_CONFIG_RETRIES) != 0) {
+    if (at_config(modem->at, "CIPQSEND", "1", SIM800_CONFIG_RETRIES) != 0) {
         return -1;
     }
 

@@ -302,9 +302,42 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    DBG_V("S< [%d bytes]\n", size);
+    DBG_V("R< [%d bytes]\n", size);
 
     return _at_send(priv, data, size);
+}
+
+inline void byte_to_hex(char byte, char* hex) {
+    int h = byte & 0x0F;
+    hex[1] = h < 10 ? '0' + h : 'A' + h - 10;
+
+    h = (byte >> 4) & 0x0F;
+    hex[0] = h < 10 ? '0' + h : 'A' + h - 10;
+}
+
+bool at_send_hex(struct at *at, const void *data, size_t size)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    DBG_V("H< [%d bytes]\n", size);
+
+    int oset = 0;
+    while(oset < size) {
+        char line[AT_COMMAND_LENGTH];
+
+        int len = sizeof(line) / 2;
+        len = size - oset > len ? len : size - oset;
+
+        for(int i = 0; i < len; i++) {
+            byte_to_hex(((char*)data)[oset + i], &line[i * 2]);
+        }
+        oset += len;
+        if(!_at_send(priv, line, len * 2)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int at_config(struct at *at, const char *option, const char *value, int attempts)

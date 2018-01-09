@@ -145,6 +145,16 @@ bool at_send(struct at *at, const char *format, ...);
 bool at_send_raw(struct at *at, const void *data, size_t size);
 
 /**
+ * Send hex data over the AT channel.
+ *
+ * @param at AT channel instance.
+ * @param data Hex data to send.
+ * @param size Data size in bytes.
+ * @returns True if success.
+ */
+bool at_send_hex(struct at *at, const void *data, size_t size);
+
+/**
  * Check and config an option.
  *
  * @param at AT channel instance.

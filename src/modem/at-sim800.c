@@ -127,10 +127,10 @@ static void handle_urc(const char *line, size_t len, void *arg)
     DBG_V("U> %s\r\n", line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
-      at_send(priv->dev.at, "AT+BTPAIR=1,1");
+      at_send(priv->dev.at, "AT+BTPAIR=1,1\r");
     } else if(!strncmp(line, "+BTCONNECTING: ", strlen("+BTCONNECTING: "))) {
       if(strstr(line, "\"SPP\"")) {
-        at_send(priv->dev.at, "AT+BTACPT=1");
+        at_send(priv->dev.at, "AT+BTACPT=1\r");
       }
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;

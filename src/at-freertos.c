@@ -280,7 +280,7 @@ bool at_send(struct at *at, const char *format, ...)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    /* Build command string. */
+    /* Build a string. */
     va_list ap;
     va_start(ap, format);
     char line[AT_COMMAND_LENGTH];
@@ -294,10 +294,7 @@ bool at_send(struct at *at, const char *format, ...)
 
     DBG_V("S< %s\n", line);
 
-    /* Append modem-style newline. */
-    line[len++] = '\r';
-
-    /* Send the command. */
+    /* Send the string. */
     return _at_send(priv, line, len);
 }
 

@@ -391,7 +391,6 @@ static const struct cellular_ops sara_ops = {
     .cops = sara_op_cops,
     .test = cellular_op_test,
     .command = cellular_op_command,
-    .ats0 = cellular_op_ats0,
     .sms = cellular_op_sms,
     .cnum = cellular_op_cnum,
     .onum = cellular_op_onum,

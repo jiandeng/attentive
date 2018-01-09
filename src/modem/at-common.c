@@ -168,14 +168,6 @@ const char* cellular_op_command(struct cellular *modem, char *cmd, int timeout)
     return at_command(modem->at, cmd);
 }
 
-int cellular_op_ats0(struct cellular *modem)
-{
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    at_command_simple(modem->at, "ATS0=2");
-
-    return 0;
-}
-
 int cellular_op_sms(struct cellular *modem, char* num, char* msg, size_t len)
 {
     // Check SMS length

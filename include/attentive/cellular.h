@@ -147,12 +147,6 @@ void cellular_generic_free(struct cellular *modem);
 struct cellular *cellular_telit2_alloc(void);
 void cellular_telit2_free(struct cellular *modem);
 
-struct cellular *cellular_sara_alloc(void);
-void cellular_sara_free(struct cellular *modem);
-
-struct cellular *cellular_sim800_alloc(void);
-void cellular_sim800_free(struct cellular *modem);
-
 int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len);
 int cellular_sim800_bt_enable(struct cellular *modem);
 int cellular_sim800_bt_disable(struct cellular *modem);

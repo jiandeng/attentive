@@ -403,7 +403,7 @@ static const struct cellular_ops sara_ops = {
 
 static struct cellular_sara cellular;
 
-struct cellular *cellular_sara_alloc(void)
+struct cellular *cellular_alloc(void)
 {
     struct cellular_sara *modem = &cellular;
 
@@ -413,7 +413,7 @@ struct cellular *cellular_sara_alloc(void)
     return (struct cellular *) modem;
 }
 
-void cellular_sara_free(struct cellular *modem)
+void cellular_free(struct cellular *modem)
 {
 }
 

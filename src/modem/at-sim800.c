@@ -779,7 +779,7 @@ static const struct cellular_ops sim800_ops = {
 
 static struct cellular_sim800 cellular;
 
-struct cellular *cellular_sim800_alloc(void)
+struct cellular *cellular_alloc(void)
 {
     struct cellular_sim800 *modem = &cellular;
     memset(modem, 0, sizeof(*modem));
@@ -789,7 +789,7 @@ struct cellular *cellular_sim800_alloc(void)
     return (struct cellular *) modem;
 }
 
-void cellular_sim800_free(struct cellular *modem)
+void cellular_free(struct cellular *modem)
 {
 }
 

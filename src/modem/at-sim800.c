@@ -41,6 +41,7 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 #define SIM800_WAITACK_TIMEOUT      24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define SIM800_CIICR_TIMEOUT        (85 + 10)  // According to the AT_Command_Manual
 #define SIM800_TCP_CONNECT_TIMEOUT  (75 + 10)  // According to the AT_Command_Manual
+#define SIM800_TCP_CONNECT_RETRIES  3         // According to the AT_Command_Manual
 #define SIM800_SPP_CONNECT_TIMEOUT  60        // You might wanner fixme
 #define SIM800_NSOCKETS             6
 #define NTP_BUF_SIZE                4
@@ -449,19 +450,30 @@ static int sim800_socket_connect(struct cellular *modem, const char *host, uint1
             return -1;
         }
         /* Send connection request. */
-        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
-        cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
-
-        /* Wait for socket status URC. */
-        for (int i=0; i<SIM800_TCP_CONNECT_TIMEOUT; i++) {
-            if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
-                return connid;
-            } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
-                return -1;
+        int i = 0;
+        int n = 0;
+        do {
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            priv->socket_status[connid] = SIM800_SOCKET_STATUS_UNKNOWN;
+            cellular_command_simple_pdp(modem, "AT+CIPSTART=%d,TCP,\"%s\",%d", connid, host, port);
+            /* Wait for socket status URC. */
+            while(i++ < SIM800_TCP_CONNECT_TIMEOUT) {
+                if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_CONNECTED) {
+                    return connid;
+                } else if (priv->socket_status[connid] == SIM800_SOCKET_STATUS_ERROR) {
+                    if(sim800_ipstatus(modem) != 0) {
+                        return -1;
+                    } else if(i > SIM800_TCP_CONNECT_TIMEOUT / 2) {
+                        return -1;
+                    } else {
+                        vTaskDelay(pdMS_TO_TICKS(1000));
+                        break;
+                    }
+                } else {
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                }
             }
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
+        } while(++n < SIM800_TCP_CONNECT_RETRIES);
     }
 
     return -1;

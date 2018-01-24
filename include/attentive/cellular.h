@@ -31,6 +31,7 @@
 #define CELLULAR_MAC_LENGTH 17
 #define CELLULAR_NUM_LENGTH 19
 #define CELLULAR_BT_CONNID 1000
+#define CELLULAR_NB_CONNID 1200
 
 enum {
     CREG_NOT_REGISTERED = 0,
@@ -52,6 +53,7 @@ struct cellular {
 };
 
 struct cellular_ops {
+    int (*reset)(struct cellular *modem);
     int (*suspend)(struct cellular *modem);
     int (*resume)(struct cellular *modem);
     int (*attach)(struct cellular *modem);

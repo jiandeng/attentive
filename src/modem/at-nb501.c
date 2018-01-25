@@ -37,12 +37,23 @@ struct socket_info {
     int local_port;
 };
 
+struct modem_state {
+    int power_saving : 1;
+    int radio_connected: 1;
+};
+
 static const char *const nb501_urc_responses[] = {
-    NULL
+    "+NPSMR:",
+    "+CSCON:",
+    "+NSONMI:",
+    "+NNMI:",
+    "+NPING:",
+    NULL,
 };
 
 struct cellular_nb501 {
     struct cellular dev;
+    struct modem_state state;
     struct socket_info sockets[NUMBER_SOCKETS];
 };
 
@@ -60,8 +71,16 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
 static void handle_urc(const char *line, size_t len, void *arg)
 {
+    struct at *priv = (struct at *) arg;
+    struct cellular_nb501 *modem = (struct cellular_nb501*) priv->arg;
     (void) len;
-    (void) arg;
+    int state = 0;
+
+    if(sscanf(line, "+CSCON:%d", &state) == 1) {
+        modem->state.radio_connected = state;
+    } else if(sscanf(line, "+NPSMR:%d", &state) == 1) {
+        modem->state.power_saving = state;
+    }
 
     DBG_V("U> %s\r\n", line);
 }
@@ -206,10 +225,15 @@ static int scanner_nmgr(const char *line, size_t len, void *arg)
 {
     (void) arg;
 
-    if (sscanf(line, "%d", &len) == 1)
+    if (at_prefix_in_table(line, nb501_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    if (sscanf(line, "%d", &len) == 1) {
         if (len > 0) {
             return AT_RESPONSE_HEXDATA_FOLLOWS(len);
         }
+    }
 
     return AT_RESPONSE_UNKNOWN;
 }
@@ -232,10 +256,15 @@ static int scanner_nsorf(const char *line, size_t len, void *arg)
 {
     (void) arg;
 
-    if (sscanf(line, "%*d,%*[^,],%*d,%d", &len) == 1)
+    if (at_prefix_in_table(line, nb501_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    if (sscanf(line, "%*d,%*[^,],%*d,%d", &len) == 1) {
         if (len > 0) {
             return AT_RESPONSE_HEXDATA_FOLLOWS(len);
         }
+    }
 
     return AT_RESPONSE_UNKNOWN;
 }
@@ -415,7 +444,7 @@ static int nb501_op_nccid(struct cellular *modem, char *buf, size_t len)
 }
 
 static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
-    struct at *priv = (struct at *) arg;
+    (void) arg;
 
     if(ch > 0x1F && ch < 0x7F) {
 
@@ -435,7 +464,6 @@ static int nb501_op_reset(struct cellular *modem)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT+CFUN=0");
     at_command_simple(modem->at, "AT+NCDP=180.101.147.115");
-    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
 
     // Reboot
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
@@ -443,8 +471,14 @@ static int nb501_op_reset(struct cellular *modem)
     if(at_command(modem->at, "AT+NRB") == NULL) {
         return -2;
     } else {
+        /* Delay 2 seconds to continue */
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         at_command_simple(modem->at, "AT+CMEE=1");
+        at_command_simple(modem->at, "AT+CSCON=1");
+        at_command_simple(modem->at, "AT+NPSMR=1");
+        at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
     }
 
     return 0;

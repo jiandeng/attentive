@@ -23,6 +23,7 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            7
+#define RESUME_TIMEOUT            60
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,
@@ -71,13 +72,16 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
 static void handle_urc(const char *line, size_t len, void *arg)
 {
-    struct at *priv = (struct at *) arg;
-    struct cellular_nb501 *modem = (struct cellular_nb501*) priv->arg;
+    struct cellular_nb501 *modem = (struct cellular_nb501*) arg;
     (void) len;
     int state = 0;
 
-    if(sscanf(line, "+CSCON:%d", &state) == 1) {
+    if(sscanf(line, "+CSCON:%*d,%d", &state) == 1) {
         modem->state.radio_connected = state;
+    } else if(sscanf(line, "+CSCON:%d", &state) == 1) {
+        modem->state.radio_connected = state;
+    } else if(sscanf(line, "+NPSMR:%*d,%d", &state) == 1) {
+        modem->state.power_saving = state;
     } else if(sscanf(line, "+NPSMR:%d", &state) == 1) {
         modem->state.power_saving = state;
     }
@@ -460,6 +464,12 @@ static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
 
 static int nb501_op_reset(struct cellular *modem)
 {
+    struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
+
+    // Cleanup
+    memset(&priv->state, 0, sizeof(priv->state));
+    memset(priv->sockets, 0, sizeof(priv->sockets));
+
     // Set CDP
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT+CFUN=0");
@@ -484,10 +494,48 @@ static int nb501_op_reset(struct cellular *modem)
     return 0;
 }
 
+static int nb501_suspend(struct cellular *modem)
+{
+    at_suspend(modem->at);
+
+    return 0;
+}
+
+static int nb501_resume(struct cellular *modem)
+{
+    struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
+
+    at_resume(modem->at);
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+
+    at_command_simple(modem->at, "AT+CMEE=1");
+    at_command_simple(modem->at, "AT+CSCON=1");
+    at_command_simple(modem->at, "AT+NPSMR=1");
+    at_command_simple(modem->at, "AT+CSCON?");
+    at_command_simple(modem->at, "AT+NPSMR?");
+
+    const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");
+    if(response || *response == '\0') {
+        for(int i = 0; i < RESUME_TIMEOUT; i++) {
+            if(priv->state.radio_connected) {
+                return 0;
+            } else if(i > 10 && priv->state.power_saving) {
+                break;
+            } else {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+            }
+        }
+    }
+
+    return nb501_op_reset(modem);
+}
+
 static const struct cellular_ops nb501_ops = {
     .reset = nb501_op_reset,
     .attach = nb501_attach,
     .detach = nb501_detach,
+    .suspend = nb501_suspend,
+    .resume = nb501_resume,
 
     .pdp_open = nb501_pdp_open,
     .pdp_close = nb501_pdp_close,

@@ -515,12 +515,14 @@ static int nb501_resume(struct cellular *modem)
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");
 
+    int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");
     if(response || *response == '\0') {
         for(int i = 0; i < RESUME_TIMEOUT; i++) {
+            wake_count += !priv->state.power_saving;
             if(priv->state.radio_connected) {
                 return 0;
-            } else if(i > 10 && priv->state.power_saving) {
+            } else if(wake_count && priv->state.power_saving) {
                 break;
             } else {
                 vTaskDelay(pdMS_TO_TICKS(1000));

@@ -49,6 +49,7 @@ static const char *const nb501_urc_responses[] = {
     "+NSONMI:",
     "+NNMI:",
     "+NPING:",
+    "+NPINGERR:",
     NULL,
 };
 

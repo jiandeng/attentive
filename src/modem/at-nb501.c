@@ -490,6 +490,7 @@ static int nb501_op_reset(struct cellular *modem)
         at_command_simple(modem->at, "AT+CSCON=1");
         at_command_simple(modem->at, "AT+NPSMR=1");
         at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
+        at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
     }
 
     return 0;
@@ -514,6 +515,7 @@ static int nb501_resume(struct cellular *modem)
     at_command_simple(modem->at, "AT+NPSMR=1");
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");
+    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
 
     int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");

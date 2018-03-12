@@ -248,6 +248,7 @@ const char *at_command(struct at *at, const char *format, ...)
     }
 
     DBG_V("<< %s\r\n", line);
+    DBG_L("<< %s\r\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -261,6 +262,7 @@ const char *at_command_raw(struct at *at, const void *data, size_t size)
     struct at_freertos *priv = (struct at_freertos *) at;
 
     DBG_V("<< [%d bytes]\n", size);
+    DBG_L("<< [%d bytes]\n", size);
 
     return _at_command(priv, data, size);
 }
@@ -296,6 +298,7 @@ bool at_send(struct at *at, const char *format, ...)
     }
 
     DBG_V("S< %s\n", line);
+    DBG_L("S< %s\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -309,6 +312,7 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
     struct at_freertos *priv = (struct at_freertos *) at;
 
     DBG_V("S< [%d bytes]\n", size);
+    DBG_L("S< [%d bytes]\n", size);
 
     return _at_send(priv, data, size);
 }

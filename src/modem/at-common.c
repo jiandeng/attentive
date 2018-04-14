@@ -68,8 +68,8 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
     if(response == NULL) {
         return -2;
     }
-    if(strlen(response) == CELLULAR_IMEI_LENGTH && len > CELLULAR_IMEI_LENGTH) {
-        strncpy(buf, response, len);
+    if(len > CELLULAR_IMEI_LENGTH && sscanf(response, "+CGSN:%16s", buf) == 1) {
+
     } else {
         return -1;
     }

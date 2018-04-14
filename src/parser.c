@@ -180,7 +180,7 @@ static void parser_handle_line(struct at_parser *parser)
     enum at_response_type type = AT_RESPONSE_UNKNOWN;
     if (parser->cbs->scan_line)
         type = parser->cbs->scan_line(line, len, parser->priv);
-    if (!type)
+    if (!type && parser->state != STATE_HEXDATA && parser->state != STATE_RAWDATA)
         type = generic_line_scanner(line, len, parser);
 
     /* Expected URCs and all unexpected lines are sent to URC handler. */
@@ -299,8 +299,10 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                 }
 
                 if (parser->data_left == 0) {
-                    parser_include_line(parser);
-                    parser->state = STATE_READLINE;
+                    parser_handle_line(parser);
+                    if(parser->state != STATE_IDLE) {
+                        parser->state = STATE_READLINE;
+                    }
                 }
             } break;
 
@@ -320,8 +322,10 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                 }
 
                 if (parser->data_left == 0) {
-                    parser_include_line(parser);
-                    parser->state = STATE_READLINE;
+                    parser_handle_line(parser);
+                    if(parser->state != STATE_IDLE) {
+                        parser->state = STATE_READLINE;
+                    }
                 }
             } break;
         }

@@ -174,7 +174,13 @@ static void parser_handle_line(struct at_parser *parser)
     size_t len = parser->buf_used - parser->buf_current;
 
     /* Log the received line. */
-    DBG_V(">> %s\r\n", line);
+    if(parser->state == STATE_HEXDATA) {
+        DBG_V("H> [%d bytes]\r\n", len);
+    } else if(parser->state == STATE_RAWDATA) {
+        DBG_V("R> [%d bytes]\r\n", len);
+    } else {
+        DBG_V(">> %s\r\n", line);
+    }
 
     /* Determine response type. */
     enum at_response_type type = AT_RESPONSE_UNKNOWN;

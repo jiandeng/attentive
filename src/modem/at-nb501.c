@@ -205,7 +205,7 @@ static ssize_t nb501_socket_send(struct cellular *modem, int connid, const void 
 
     if(connid == CELLULAR_NB_CONNID) {
         amount = amount > 512 ? 512 : amount;
-        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        at_set_timeout(modem->at, AT_TIMEOUT_LONG);
         at_send(modem->at, "AT+NMGS=%d,", amount);
         at_send_hex(modem->at, buffer, amount);
         at_command_simple(modem->at, "");
@@ -214,7 +214,7 @@ static ssize_t nb501_socket_send(struct cellular *modem, int connid, const void 
         struct socket_info *info = &priv->sockets[connid];
         if(info->status == SOCKET_STATUS_CONNECTED) {
             amount = amount > 512 ? 512 : amount;
-            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            at_set_timeout(modem->at, AT_TIMEOUT_LONG);
             at_send(modem->at, "AT+NSOST=%d,%s,%d,%d,", connid, info->host, info->port, amount);
             at_send_hex(modem->at, buffer, amount);
             const char* response = at_command(modem->at, "");

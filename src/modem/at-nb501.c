@@ -234,7 +234,7 @@ static int scanner_nmgr(const char *line, size_t len, void *arg)
         return AT_RESPONSE_URC;
     }
 
-    if (sscanf(line, "%d", &len) == 1) {
+    if (sscanf(line, "%d,", &len) == 1) {
         if (len > 0) {
             return AT_RESPONSE_HEXDATA_FOLLOWS(len);
         }
@@ -265,7 +265,7 @@ static int scanner_nsorf(const char *line, size_t len, void *arg)
         return AT_RESPONSE_URC;
     }
 
-    if (sscanf(line, "%*d,%*[^,],%*d,%d", &len) == 1) {
+    if (sscanf(line, "%*d,%*[^,],%*d,%d,", &len) == 1) {
         if (len > 0) {
             return AT_RESPONSE_HEXDATA_FOLLOWS(len);
         }

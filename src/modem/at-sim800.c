@@ -143,6 +143,42 @@ static const struct at_callbacks sim800_callbacks = {
     .handle_urc = handle_urc,
 };
 
+#if 0
+/**
+ * SIM800 IP configuration commands fail if the IP application is running,
+ * even though the configuration settings are already right. The following
+ * monkey dance is therefore needed.
+ */
+static int sim800_config(struct cellular *modem, const char *option, const char *value, int attempts)
+{
+    at_set_timeout(modem->at, 10);
+
+    for (int i=0; i<attempts; i++) {
+        /* Blindly try to set the configuration option. */
+        at_command(modem->at, "AT+%s=%s", option, value);
+
+        /* Query the setting status. */
+        const char *response = at_command(modem->at, "AT+%s?", option);
+        /* Bail out on timeouts. */
+        if (response == NULL)
+            return -1;
+
+        /* Check if the setting has the correct value. */
+        char expected[16];
+        if (snprintf(expected, sizeof(expected), "+%s: %s", option, value) >= (int) sizeof(expected)) {
+            return -1;
+        }
+        if (!strcmp(response, expected))
+            return 0;
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+    return -1;
+}
+#endif
+
+
 static int sim800_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &sim800_callbacks, (void *) modem);

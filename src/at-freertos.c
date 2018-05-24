@@ -11,9 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include "FreeRTOS.h"
-#include "FreeRTOS_IO.h"
+#include "uart.h"
 #include "task.h"
 #include "semphr.h"
+#include "hal_cfg.h"
 #define printf(...)
 #include "debug.h"
 
@@ -31,7 +32,7 @@ struct at_freertos {
     TaskHandle_t xTask;
     /*SemaphoreHandle_t xMutex;*/
     SemaphoreHandle_t xSem;
-    Peripheral_Descriptor_t xUART;
+    hal_uart_t* xUART;
 
     bool running : 1;       /**< Reader thread should be running. */
     bool open : 1;          /**< FD is valid. Set/cleared by open()/close(). */
@@ -103,15 +104,23 @@ int at_open(struct at *at)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    priv->xUART = FreeRTOS_open(boardCELL_UART, 0);
-    if(priv->xUART == NULL) {
-        return -1;
-    } else {
-        FreeRTOS_ioctl(priv->xUART, ioctlUSE_DMA_TX, (void*)0);
-        FreeRTOS_ioctl(priv->xUART, ioctlUSE_CIRCULAR_BUFFER_RX, (void*)AT_BUF_SIZE);
-        FreeRTOS_ioctl(priv->xUART, ioctlSET_TX_TIMEOUT, (void*)pdMS_TO_TICKS(200));
-        FreeRTOS_ioctl(priv->xUART, ioctlSET_RX_TIMEOUT, (void*)pdMS_TO_TICKS(100));
+    priv->xUART= hal_uart_get_instance(0);
+    if(!priv->xUART) {
+    return -1;
     }
+    const hal_uart_cfg_t cfg = {
+        .baudrate = HAL_UART_BAUDRATE_115200,
+        .parity = HAL_UART_PARITY_NONE,
+        .tx_mode = HAL_UART_TX_MODE_NOCOPY,
+        .rx_mode = HAL_UART_RX_MODE_BUFFERED,
+        .rx_buf_size = 640,
+        .rx_timeout_ms = 200,
+        .tx_timeout_ms = 100,
+        .tx_pin = HAL_CFG_CELL_TXD,
+        .rx_pin = HAL_CFG_CELL_RXD,
+    };
+    priv->xUART->ops->init(priv->xUART, &cfg);
+    priv->xUART->ops->set_rx_enable(priv->xUART, true);
 
     priv->open = true;
     /*xSemaphoreGive(priv->xMutex);*/
@@ -126,7 +135,7 @@ int at_close(struct at *at)
     /* Mark the port descriptor as invalid. */
     priv->open = false;
 
-    FreeRTOS_close(priv->xUART);
+    priv->xUART->ops->deinit(priv->xUART);
     priv->xUART = NULL;
 
     return 0;
@@ -217,7 +226,7 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
 
     /* Send the command. */
     // FIXME: handle interrupts, short writes, errors, etc.
-    FreeRTOS_write(priv->xUART, data, size);
+    priv->xUART->ops->write(priv->xUART, (char*)data, size);
 
     /* Wait for the parser thread to collect a response. */
     priv->waiting = true;
@@ -295,7 +304,8 @@ bool _at_send(struct at_freertos *priv, const void *data, size_t size)
 
     /* Send the command. */
     // FIXME: handle interrupts, short writes, errors, etc.
-    return FreeRTOS_write(priv->xUART, data, size) == size;
+    priv->xUART->ops->write(priv->xUART, (char*)data, size);
+    return true;
 }
 
 bool at_send(struct at *at, const char *format, ...)
@@ -410,7 +420,7 @@ void at_reader_thread(void *arg)
 
         /* Attempt to read some data. */
         char ch;
-        int result = FreeRTOS_read(priv->xUART, &ch, 1);
+        int result = priv->xUART->ops->read(priv->xUART, &ch, 1);
 
         /* Unlock access to the port descriptor. */
         priv->busy = false;

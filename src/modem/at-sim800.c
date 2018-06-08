@@ -528,7 +528,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       /* Request transmission. */
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_expect_dataprompt(modem->at, "> ");
-      at_command_simple(modem->at, "AT+BTSPPSEND=%d,%zu", priv->spp_connid, amount);
+      at_command_simple(modem->at, "AT+BTSPPSEND=%d,%d", priv->spp_connid, amount);
 
       /* Send raw data. */
       at_set_command_scanner(modem->at, scanner_cipsend);
@@ -541,7 +541,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       /* Request transmission. */
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_expect_dataprompt(modem->at, "> ");
-      at_command_simple(modem->at, "AT+CIPSEND=%d,%zu", connid, amount);
+      at_command_simple(modem->at, "AT+CIPSEND=%d,%d", connid, amount);
 
       /* Send raw data. */
       at_set_command_scanner(modem->at, scanner_cipsend);

@@ -221,7 +221,7 @@ static ssize_t sara_socket_send(struct cellular *modem, int connid, const void *
     /* Request transmission. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_expect_dataprompt(modem->at, "@");
-    at_command_simple(modem->at, "AT+USOWR=%d,%zu", connid, amount);
+    at_command_simple(modem->at, "AT+USOWR=%d,%d", connid, amount);
     vTaskDelay(pdMS_TO_TICKS(50));
     const char* resp = at_command_raw(modem->at, buffer, amount);
     int written = 0;

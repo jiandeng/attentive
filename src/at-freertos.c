@@ -95,7 +95,7 @@ struct at *at_alloc_freertos(void)
     /*priv->xMutex = xSemaphoreCreateBinary();*/
     // CAUSING: create the reader task at high priority
     priv->xSem = xSemaphoreCreateBinary();
-    xTaskCreate(at_reader_thread, "ATReadTask", configMINIMAL_STACK_SIZE * 2, priv, 4, &priv->xTask);
+    xTaskCreate(at_reader_thread, "AT", 320, priv, 2, &priv->xTask);
 
     return (struct at *) priv;
 }

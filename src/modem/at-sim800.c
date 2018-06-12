@@ -359,8 +359,8 @@ static enum at_response_type scanner_cifsr(const char *line, size_t len, void *a
     (void) arg;
 
     /* Accept an IP address as an OK response. */
-    int ip[4];
-    if (sscanf(line, "%d.%d.%d.%d", &ip[0], &ip[1], &ip[2], &ip[3]) == 4)
+    int ip;
+    if (sscanf(line, "%*d.%*d.%*d.%d", &ip) == 1)
         return AT_RESPONSE_FINAL_OK;
     return AT_RESPONSE_UNKNOWN;
 }

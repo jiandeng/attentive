@@ -182,6 +182,10 @@ static void parser_handle_line(struct at_parser *parser)
         DBG_V(">> %s\r\n", line);
     }
 
+#ifdef DBG_F
+    DBG_F();
+#endif
+
     /* Determine response type. */
     enum at_response_type type = AT_RESPONSE_UNKNOWN;
     if (parser->cbs->scan_line)

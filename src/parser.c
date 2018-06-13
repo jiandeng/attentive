@@ -76,6 +76,18 @@ struct at_parser *at_parser_alloc(const struct at_parser_callbacks *cbs, void *p
     return parser;
 }
 
+void at_parser_show_residual(struct at_parser *parser)
+{
+    int len = parser->buf_used - parser->buf_current;
+    if(len > 0) {
+        parser->buf[parser->buf_used]= 0;
+        DBG_V(">! %s (%d)\r\n", parser->buf + parser->buf_current, len);
+#ifdef DBG_F
+        DBG_F();
+#endif
+    }
+}
+
 void at_parser_reset(struct at_parser *parser)
 {
     parser->state = STATE_IDLE;

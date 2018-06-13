@@ -237,6 +237,8 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
         result = NULL;
     } else if (priv->waiting) {
         /* Timed out waiting for a response. */
+        void at_parser_show_residual(struct at_parser *parser);
+        at_parser_show_residual(priv->at.parser);
         at_parser_reset(priv->at.parser);
         result = NULL;
     } else {

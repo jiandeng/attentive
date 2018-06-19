@@ -70,7 +70,7 @@ static const char *const sim800_urc_responses[] = {
     "+CIEV: ",          /* AT+CLTS undocumented indicator */
     "RDY",              /* Assorted crap on newer firmware releases. */
     "+CFUN:",
-    "+CPIN: READY",
+    "+CPIN:",
     "Call Ready",
     "SMS Ready",
     "NORMAL POWER DOWN",

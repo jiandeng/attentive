@@ -114,9 +114,17 @@ static int nb501_attach(struct cellular *modem)
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
     /* Initialize modem. */
     static const char *const init_strings[] = {
+        "AT+CMEE=1",
+        "AT+CSCON=1",
+        "AT+NPSMR=1",
+        "AT+CGDCONT=1,\"IP\",\"ue.prefer.ctnb\"",
+        "AT+CEREG=4",
+        "AT+CPSMS=0",
+        "AT+CEDRXS=0, 5, 1010",
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)

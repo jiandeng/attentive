@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "FreeRTOS.h"
-#include "uart.h"
+#include "hal_uart.h"
 #include "task.h"
 #include "semphr.h"
 #include "hal_cfg.h"

@@ -300,11 +300,13 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
 
             case STATE_RAWDATA: {
                 if (parser->data_left > 0) {
+                    DBG_V("%02X ", ch);
                     parser_append(parser, ch);
                     parser->data_left--;
                 }
 
                 if (parser->data_left == 0) {
+                    DBG_V("\r\n");
                     parser_handle_line(parser);
                     if(parser->state != STATE_IDLE) {
                         parser->state = STATE_READLINE;
@@ -314,11 +316,13 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
 
             case STATE_HEXDATA: {
                 if (parser->data_left > 0) {
+                    DBG_V("%c", ch);
                     int value = hex2int(ch);
                     if (value != -1) {
                         if (parser->nibble == -1) {
                             parser->nibble = value;
                         } else {
+                            DBG_V(" ", ch);
                             value |= (parser->nibble << 4);
                             parser->nibble = -1;
                             parser_append(parser, value);
@@ -328,6 +332,7 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                 }
 
                 if (parser->data_left == 0) {
+                    DBG_V("\r\n");
                     parser_handle_line(parser);
                     if(parser->state != STATE_IDLE) {
                         parser->state = STATE_READLINE;

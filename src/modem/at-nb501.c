@@ -24,6 +24,7 @@ DBG_SET_LEVEL(DBG_LEVEL_D);
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            7
 #define RESUME_TIMEOUT            60
+#define TUP_REGISTER_TIMEOUT      20
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,
@@ -208,8 +209,29 @@ static ssize_t nb501_socket_send(struct cellular *modem, int connid, const void 
         at_set_timeout(modem->at, AT_TIMEOUT_LONG);
         at_send(modem->at, "AT+NMGS=%d,", amount);
         at_send_hex(modem->at, buffer, amount);
-        at_command_simple(modem->at, "");
-        return amount;
+        const char* response = at_command(modem->at, "");
+        if(!response) {
+            return -2;
+        } else if(!*response) {
+            return amount;
+        } else if(!strncmp(response, "+CME ERROR: 513", strlen("+CME ERROR: 513"))) {
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            for(int i = 0; i < TUP_REGISTER_TIMEOUT; i++) {
+                const char* response = at_command(modem->at, "AT+NMSTATUS?");
+                if(response == NULL) {
+                    return -2;
+                } else if(!strncmp(response, "+NMSTATUS:MO_DATA_ENABLED", strlen("+NMSTATUS:MO_DATA_ENABLED"))) {
+                    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+                    at_send(modem->at, "AT+NMGS=%d,", amount);
+                    at_send_hex(modem->at, buffer, amount);
+                    at_command_simple(modem->at, "");
+                    return amount;
+                } else {
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                }
+            }
+        }
+        return -1;
     } else if(connid < NUMBER_SOCKETS) {
         struct socket_info *info = &priv->sockets[connid];
         if(info->status == SOCKET_STATUS_CONNECTED) {

@@ -54,6 +54,14 @@ static const char *const nb501_urc_responses[] = {
     NULL,
 };
 
+static const char *const nb501_init_commands[] = {
+    "AT+CMEE=1",
+    "AT+CEREG=4",
+    "AT+CSCON=1",
+    "AT+NPSMR=1",
+    NULL,
+};
+
 struct cellular_nb501 {
     struct cellular dev;
     struct modem_state state;
@@ -101,27 +109,41 @@ static const struct at_callbacks nb501_callbacks = {
 
 static int nb501_attach(struct cellular *modem)
 {
+    const char* response = NULL;
+
     at_set_callbacks(modem->at, &nb501_callbacks, (void *) modem);
 
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
     /* Perform autobauding. */
     for (int i=0; i<AUTOBAUD_ATTEMPTS; i++) {
-        const char *response = at_command(modem->at, "AT");
-        if (response != NULL && *response == '\0') {
+        response = at_command(modem->at, "AT");
+        if (response && *response) {
             break;
         }
+    }
+    if(!response) {
+        return -2;
     }
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     /* Initialize modem. */
-    static const char *const init_strings[] = {
-        NULL
-    };
-    for (const char *const *command=init_strings; *command; command++)
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    response = at_command(modem->at, "AT+NCDP?");
+    if(!response) {
+        return -2;
+    } else if(strncmp(response, "+NCDP:180.101.147.115", strlen("+NCDP:180.101.147.115"))) {
+        int nb501_op_reset(struct cellular *modem);
+        return nb501_op_reset(modem);
+    }
+
+    for (const char *const *command=nb501_init_commands; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
+    }
+    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
+    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
 
     return 0;
 }
@@ -507,10 +529,11 @@ static int nb501_op_reset(struct cellular *modem)
         /* Delay 2 seconds to continue */
         vTaskDelay(pdMS_TO_TICKS(2000));
 
+        /* Initialize modem. */
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        at_command_simple(modem->at, "AT+CMEE=1");
-        at_command_simple(modem->at, "AT+CSCON=1");
-        at_command_simple(modem->at, "AT+NPSMR=1");
+        for (const char *const *command=nb501_init_commands; *command; command++) {
+            at_command_simple(modem->at, "%s", *command);
+        }
         at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
         at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
     }
@@ -530,14 +553,17 @@ static int nb501_resume(struct cellular *modem)
     struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
 
     at_resume(modem->at);
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
-    at_command_simple(modem->at, "AT+CMEE=1");
-    at_command_simple(modem->at, "AT+CSCON=1");
-    at_command_simple(modem->at, "AT+NPSMR=1");
+    /* Initialize modem. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    for (const char *const *command=nb501_init_commands; *command; command++) {
+        at_command_simple(modem->at, "%s", *command);
+    }
+    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
+    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
 
     int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");

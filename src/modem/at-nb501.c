@@ -558,8 +558,8 @@ static int nb501_resume(struct cellular *modem)
     for (const char *const *command=nb501_init_commands; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
     }
-    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+    at_command(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
+    at_command(modem->at, "AT+CPSMS=1,,,01011111,00000000");
 
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");

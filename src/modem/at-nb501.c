@@ -56,7 +56,6 @@ static const char *const nb501_urc_responses[] = {
 
 static const char *const nb501_init_commands[] = {
     "AT+CMEE=1",
-    "AT+CEREG=4",
     "AT+CSCON=1",
     "AT+NPSMR=1",
     NULL,

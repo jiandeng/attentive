@@ -222,6 +222,7 @@ static int sim800_detach(struct cellular *modem)
 
 static int sim800_suspend(struct cellular *modem)
 {
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command(modem->at, "AT+CSCLK=2");
     at_suspend(modem->at);
 
@@ -231,8 +232,9 @@ static int sim800_suspend(struct cellular *modem)
 static int sim800_resume(struct cellular *modem)
 {
     at_resume(modem->at);
-    at_command(modem->at, "AT");
-    at_command_simple(modem->at, "AT");
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command(modem->at, "AT+CSCLK=0");
+    at_command_simple(modem->at, "AT+CSCLK=0");
 
     return 0;
 }

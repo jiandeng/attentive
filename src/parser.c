@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
@@ -252,6 +253,9 @@ static void parser_handle_line(struct at_parser *parser)
         {
             /* Switch parser state to hexdata mode. */
             parser->data_left = (int)type >> 8;
+            if(parser->data_left == 0) {
+                parser->data_left = INT_MAX;
+            }
             parser->nibble = -1;
             parser->state = STATE_HEXDATA;
         }
@@ -342,8 +346,12 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                             value |= (parser->nibble << 4);
                             parser->nibble = -1;
                             parser_append(parser, value);
-                            parser->data_left--;
+                            if(parser->data_left != INT_MAX) {
+                                parser->data_left--;
+                            }
                         }
+                    } else if(parser->data_left == INT_MAX) {
+                        parser->data_left = 0;
                     }
                 }
 

@@ -15,11 +15,10 @@
 #include "task.h"
 
 #include "at-common.h"
-#define printf(...)
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 #define AUTOBAUD_ATTEMPTS         10
 #define WAITACK_TIMEOUT           24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
@@ -80,7 +79,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sara *priv = arg;
 
-    DBG_V("U> %s\r\n", line);
+    DBG_D("U> %s\r\n", line);
 
     int connid = -1;
     if(sscanf(line, "UUSOCL: %d", &connid) == 1) {

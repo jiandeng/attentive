@@ -12,7 +12,6 @@
 #include <string.h>
 
 #include "at-common.h"
-#define printf(...)
 
 
 #define PDP_RETRY_THRESHOLD_INITIAL     3

@@ -15,11 +15,10 @@
 #include "task.h"
 
 #include "at-common.h"
-#define printf(...)
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            7
@@ -95,7 +94,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
         modem->state.power_saving = state;
     }
 
-    DBG_V("U> %s\r\n", line);
+    DBG_D("U> %s\r\n", line);
 }
 
 static const struct at_callbacks nb501_callbacks = {

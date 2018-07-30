@@ -82,7 +82,7 @@ void at_parser_show_residual(struct at_parser *parser)
     int len = parser->buf_used - parser->buf_current;
     if(len > 0) {
         parser->buf[parser->buf_used]= 0;
-        DBG_V(">! %s (%d)\r\n", parser->buf + parser->buf_current, len);
+        DBG_D(">! %s (%d)\r\n", parser->buf + parser->buf_current, len);
 #ifdef DBG_F
         DBG_F();
 #endif
@@ -188,13 +188,12 @@ static void parser_handle_line(struct at_parser *parser)
 
     /* Log the received line. */
     if(parser->state == STATE_HEXDATA) {
-        DBG_V("H> [%d bytes]\r\n", len);
+        DBG_D("H> [%d bytes]\r\n", len);
     } else if(parser->state == STATE_RAWDATA) {
-        DBG_V("R> [%d bytes]\r\n", len);
+        DBG_D("R> [%d bytes]\r\n", len);
     } else {
-        DBG_V(">> %s\r\n", line);
+        DBG_D(">> %s\r\n", line);
     }
-
 #ifdef DBG_F
     DBG_F();
 #endif
@@ -342,7 +341,7 @@ void at_parser_feed(struct at_parser *parser, const void *data, size_t len)
                         if (parser->nibble == -1) {
                             parser->nibble = value;
                         } else {
-                            DBG_V(" ", ch);
+                            DBG_V(" ");
                             value |= (parser->nibble << 4);
                             parser->nibble = -1;
                             parser_append(parser, value);

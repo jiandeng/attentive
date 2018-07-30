@@ -15,11 +15,12 @@
 #include "task.h"
 
 #include "at-common.h"
-#define printf(...)
 #include "debug.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_D);
+DBG_SET_LEVEL(DBG_LEVEL_I);
+
+#define printf(...)
 
 /*
  * SIM800 probably holds the highly esteemed position of the world's worst
@@ -125,7 +126,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sim800 *priv = arg;
 
-    DBG_V("U> %s\r\n", line);
+    DBG_D("U> %s\r\n", line);
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1\r");

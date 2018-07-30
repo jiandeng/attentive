@@ -310,7 +310,7 @@ const char *at_command(struct at *at, const char *format, ...)
         return NULL;
     }
 
-    DBG_V("<< %s\r\n", line);
+    DBG_D("<< %s\r\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -323,7 +323,7 @@ const char *at_command_raw(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    DBG_V("<< [%d bytes]\n", size);
+    DBG_D("<< [%d bytes]\n", size);
 
     return _at_command(priv, data, size);
 }
@@ -361,7 +361,7 @@ bool at_send(struct at *at, const char *format, ...)
         return false;
     }
 
-    DBG_V("S< %s\n", line);
+    DBG_D("S< %s\n", line);
 
     /* Send the string. */
     return _at_send(priv, line, len);
@@ -371,7 +371,7 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    DBG_V("R< [%d bytes]\n", size);
+    DBG_D("R< [%d bytes]\n", size);
 
     return _at_send(priv, data, size);
 }
@@ -388,7 +388,7 @@ bool at_send_hex(struct at *at, const void *data, size_t size)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
-    DBG_V("H< [%d bytes]\n", size);
+    DBG_D("H< [%d bytes]\n", size);
 
     int oset = 0;
     while(oset < size) {

@@ -11,11 +11,16 @@
 #include <stdio.h>
 #include <string.h>
 #include "FreeRTOS.h"
-#include "FreeRTOS_IO.h"
 #include "task.h"
 #include "semphr.h"
-#define printf(...)
 #include "debug.h"
+
+#ifdef USE_FREERTOS_IO
+#include "FreeRTOS_IO.h"
+#else
+#include "hal_uart.h"
+#include "hal_cfg.h"
+#endif
 
 /* Defines -------------------------------------------------------------------*/
 DBG_SET_LEVEL(DBG_LEVEL_I);
@@ -31,7 +36,11 @@ struct at_freertos {
     TaskHandle_t xTask;
     /*SemaphoreHandle_t xMutex;*/
     SemaphoreHandle_t xSem;
+#ifdef USE_FREERTOS_IO
     Peripheral_Descriptor_t xUART;
+#else
+    hal_uart_t* xUART;
+#endif
 
     bool running : 1;       /**< Reader thread should be running. */
     bool open : 1;          /**< FD is valid. Set/cleared by open()/close(). */
@@ -94,7 +103,11 @@ struct at *at_alloc_freertos(void)
     /*priv->xMutex = xSemaphoreCreateBinary();*/
     // CAUSING: create the reader task at high priority
     priv->xSem = xSemaphoreCreateBinary();
+#ifdef USE_FREERTOS_IO
     xTaskCreate(at_reader_thread, "ATReadTask", configMINIMAL_STACK_SIZE * 2, priv, 4, &priv->xTask);
+#else
+    xTaskCreate(at_reader_thread, "AT", 320, priv, 2, &priv->xTask);
+#endif
 
     return (struct at *) priv;
 }
@@ -103,6 +116,7 @@ int at_open(struct at *at)
 {
     struct at_freertos *priv = (struct at_freertos *) at;
 
+#ifdef USE_FREERTOS_IO
     priv->xUART = FreeRTOS_open(boardCELL_UART, 0);
     if(priv->xUART == NULL) {
         return -1;
@@ -112,6 +126,25 @@ int at_open(struct at *at)
         FreeRTOS_ioctl(priv->xUART, ioctlSET_TX_TIMEOUT, (void*)pdMS_TO_TICKS(200));
         FreeRTOS_ioctl(priv->xUART, ioctlSET_RX_TIMEOUT, (void*)pdMS_TO_TICKS(100));
     }
+#else
+    priv->xUART= hal_uart_get_instance(0);
+    if(!priv->xUART) {
+    return -1;
+    }
+    const hal_uart_cfg_t cfg = {
+        .baudrate = HAL_UART_BAUDRATE_115200,
+        .parity = HAL_UART_PARITY_NONE,
+        .tx_mode = HAL_UART_TX_MODE_NOCOPY,
+        .rx_mode = HAL_UART_RX_MODE_BUFFERED,
+        .rx_buf_size = 640,
+        .rx_timeout_ms = 200,
+        .tx_timeout_ms = 100,
+        .tx_pin = HAL_CFG_CELL_TXD,
+        .rx_pin = HAL_CFG_CELL_RXD,
+    };
+    priv->xUART->ops->init(priv->xUART, &cfg);
+    priv->xUART->ops->set_rx_enable(priv->xUART, true);
+#endif
 
     priv->open = true;
     /*xSemaphoreGive(priv->xMutex);*/
@@ -126,7 +159,11 @@ int at_close(struct at *at)
     /* Mark the port descriptor as invalid. */
     priv->open = false;
 
+#ifdef USE_FREERTOS_IO
     FreeRTOS_close(priv->xUART);
+#else
+    priv->xUART->ops->deinit(priv->xUART);
+#endif
     priv->xUART = NULL;
 
     return 0;
@@ -217,7 +254,11 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
 
     /* Send the command. */
     // FIXME: handle interrupts, short writes, errors, etc.
+#ifdef USE_FREERTOS_IO
     FreeRTOS_write(priv->xUART, data, size);
+#else
+    priv->xUART->ops->write(priv->xUART, (char*)data, size);
+#endif
 
     /* Wait for the parser thread to collect a response. */
     priv->waiting = true;
@@ -297,7 +338,11 @@ bool _at_send(struct at_freertos *priv, const void *data, size_t size)
 
     /* Send the command. */
     // FIXME: handle interrupts, short writes, errors, etc.
+#ifdef USE_FREERTOS_IO
     return FreeRTOS_write(priv->xUART, data, size) == size;
+#else
+    return priv->xUART->ops->write(priv->xUART, (char*)data, size) == size;
+#endif
 }
 
 bool at_send(struct at *at, const char *format, ...)
@@ -412,7 +457,11 @@ void at_reader_thread(void *arg)
 
         /* Attempt to read some data. */
         char ch;
+#ifdef USE_FREERTOS_IO
         int result = FreeRTOS_read(priv->xUART, &ch, 1);
+#else
+        int result = priv->xUART->ops->read(priv->xUART, &ch, 1);
+#endif
 
         /* Unlock access to the port descriptor. */
         priv->busy = false;

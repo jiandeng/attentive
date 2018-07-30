@@ -201,7 +201,7 @@ static ssize_t sim7020_socket_send(struct cellular *modem, int connid, const voi
     if(connid == CELLULAR_NB_CONNID) { // TODO: fixme
         amount = amount > 512 ? 512 : amount;
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        at_send(modem->at, "AT+CM2MCLISEND=\"", amount);
+        at_send(modem->at, "AT+CM2MCLISEND=\"");
         at_send_hex(modem->at, buffer, amount);
         at_command_simple(modem->at, "\"");
         return amount;
@@ -218,37 +218,6 @@ static ssize_t sim7020_socket_send(struct cellular *modem, int connid, const voi
     }
 
     return 0;
-}
-
-static int scanner_nmgr(const char *line, size_t len, void *arg)
-{
-    (void) arg;
-
-    if (at_prefix_in_table(line, sim7020_urc_responses)) {
-        return AT_RESPONSE_URC;
-    }
-
-    if (sscanf(line, "%d", &len) == 1) {
-        if (len > 0) {
-            return AT_RESPONSE_HEXDATA_FOLLOWS(len);
-        }
-    }
-
-    return AT_RESPONSE_UNKNOWN;
-}
-
-static char character_handler_nmgr(char ch, char *line, size_t len, void *arg) {
-    struct at *priv = (struct at *) arg;
-
-    if(ch == ',') {
-        line[len] = '\0';
-        if (sscanf(line, "%d,", &len) == 1) {
-            at_set_character_handler(priv, NULL);
-            ch = '\n';
-        }
-    }
-
-    return ch;
 }
 
 static int cm2mclirecv_len = 0; // TODO: refactor me
@@ -459,20 +428,20 @@ static int sim7020_op_cops(struct cellular *modem)
     return ops;
 }
 
-static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
-    (void) arg;
+// static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
+//     (void) arg;
 
-    if(ch > 0x1F && ch < 0x7F) {
+//     if(ch > 0x1F && ch < 0x7F) {
 
-    } else if(ch == '\r' || ch == '\n') {
+//     } else if(ch == '\r' || ch == '\n') {
 
-    } else {
-        ch = ' ';
-        line[len - 1] = ch;
-    }
+//     } else {
+//         ch = ' ';
+//         line[len - 1] = ch;
+//     }
 
-    return ch;
-}
+//     return ch;
+// }
 
 static int sim7020_op_reset(struct cellular *modem)
 {

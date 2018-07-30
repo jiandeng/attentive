@@ -331,7 +331,7 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
     return _at_send(priv, data, size);
 }
 
-inline void byte_to_hex(char byte, char* hex) {
+static void byte_to_hex(char byte, char* hex) {
     int h = byte & 0x0F;
     hex[1] = h < 10 ? '0' + h : 'A' + h - 10;
 

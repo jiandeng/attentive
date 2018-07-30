@@ -68,8 +68,11 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
     if(response == NULL) {
         return -2;
     }
+
     if(len > CELLULAR_IMEI_LENGTH && sscanf(response, "+CGSN:%16s", buf) == 1) {
 
+    } else if(len > CELLULAR_IMEI_LENGTH && strlen(response) == CELLULAR_IMEI_LENGTH) {
+        strncpy(buf, response, len);
     } else {
         return -1;
     }
@@ -84,7 +87,10 @@ int cellular_op_iccid(struct cellular *modem, char *buf, size_t len)
     if(response == NULL) {
         return -2;
     }
-    if(strlen(response) == CELLULAR_ICCID_LENGTH && len > CELLULAR_ICCID_LENGTH) {
+
+    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+CCID:%20s", buf) == 1) {
+
+    } else if(len > CELLULAR_ICCID_LENGTH && strlen(response) == CELLULAR_ICCID_LENGTH) {
         strncpy(buf, response, len);
     } else {
         return -1;

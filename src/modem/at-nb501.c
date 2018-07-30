@@ -197,7 +197,7 @@ static int nb501_socket_connect(struct cellular *modem, const char *host, uint16
     struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
     int connid = -1;
 
-    if(host == NULL && port == 0) {
+    if(host == NULL || *host == 0 || port == 0) {
         return CELLULAR_NB_CONNID;
     } else {
         /* Create an udp socket. */

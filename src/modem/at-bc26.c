@@ -184,7 +184,7 @@ static int bc26_op_iccid(struct cellular *modem, char *buf, size_t len)
     if(response == NULL) {
         return -2;
     }
-    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+QCCID:%20s", buf) == 1) {
+    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+QCCID:%21s", buf) == 1) {
 
     } else {
         return -1;

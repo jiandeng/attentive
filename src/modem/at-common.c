@@ -87,7 +87,7 @@ int cellular_op_iccid(struct cellular *modem, char *buf, size_t len)
         return -2;
     }
 
-    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+CCID:%20s", buf) == 1) {
+    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+CCID:%21s", buf) == 1) {
 
     } else if(len > CELLULAR_ICCID_LENGTH && strlen(response) == CELLULAR_ICCID_LENGTH) {
         strncpy(buf, response, len);

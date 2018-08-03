@@ -482,7 +482,6 @@ static int nb501_op_nccid(struct cellular *modem, char *buf, size_t len)
         return -2;
     }
     if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+NCCID:%21s", buf) == 1) {
-        strncpy(buf, response, len);
     } else {
         return -1;
     }

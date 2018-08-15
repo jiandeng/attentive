@@ -70,7 +70,7 @@ int cellular_op_imei(struct cellular *modem, char *buf, size_t len)
 
     if(len > CELLULAR_IMEI_LENGTH && sscanf(response, "+CGSN:%16s", buf) == 1) {
 
-    } else if(len > CELLULAR_IMEI_LENGTH && strlen(response) == CELLULAR_IMEI_LENGTH) {
+    } else if(len > CELLULAR_IMEI_LENGTH && strlen(response) == CELLULAR_IMEI_LENGTH && !strstr(response, "ERROR")) {
         strncpy(buf, response, len);
     } else {
         return -1;

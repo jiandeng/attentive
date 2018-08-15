@@ -48,6 +48,7 @@ static const char *const sim7020_urc_responses[] = {
     /* "+NNMI:", */
     /* "+NPING:", */
     /* "+NPINGERR:", */
+    "+CSGACT:",
     "+CM2MCLI:",
     NULL,
 };
@@ -141,6 +142,7 @@ static int sim7020_detach(struct cellular *modem)
 
 static int sim7020_pdp_open(struct cellular *modem, const char *apn)
 {
+    at_command_simple(modem->at, "AT+CSGACT=1,1,\"%s\"", apn);
     return 0;
 }
 
@@ -469,7 +471,6 @@ static int sim7020_op_reset(struct cellular *modem)
 
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         at_command_simple(modem->at, "AT+CMEE=1");
-        /* at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn); */
         at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
     }
 

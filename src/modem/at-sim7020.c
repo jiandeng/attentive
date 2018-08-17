@@ -412,6 +412,25 @@ static int sim7020_op_creg(struct cellular *modem)
     return creg;
 }
 
+int sim7020_op_imei(struct cellular *modem, char *buf, size_t len)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+GSN");
+    if(response == NULL) {
+        return -2;
+    }
+
+    if(len > CELLULAR_IMEI_LENGTH && sscanf(response, "+GSN:%16s", buf) == 1) {
+
+    } else if(len > CELLULAR_IMEI_LENGTH && strlen(response) == CELLULAR_IMEI_LENGTH && !strstr(response, "ERROR")) {
+        strncpy(buf, response, len);
+    } else {
+        return -1;
+    }
+
+    return 0;
+}
+
 static int sim7020_op_cops(struct cellular *modem)
 {
     int ops = -1;
@@ -527,7 +546,7 @@ static const struct cellular_ops sim7020_ops = {
     .pdp_close = sim7020_pdp_close,
     .shutdown = sim7020_shutdown,
 
-    .imei = cellular_op_imei,
+    .imei = sim7020_op_imei,
     .iccid = cellular_op_iccid,
     .imsi = cellular_op_imsi,
     .creg = sim7020_op_creg,

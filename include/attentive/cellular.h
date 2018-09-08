@@ -41,6 +41,8 @@ enum {
     CREG_REGISTRATION_DENIED = 3,
     CREG_UNKNOWN = 4,
     CREG_REGISTERED_ROAMING = 5,
+    CREG_SMSONLY_HOME = 6,
+    CREG_SMSONLY_ROAMING = 7,
 };
 
 struct cellular {

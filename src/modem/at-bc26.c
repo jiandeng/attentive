@@ -23,10 +23,11 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 // #define USE_BUFFERED_RECV
 
 #define AUTOBAUD_ATTEMPTS         10
-#define NUMBER_SOCKETS            7
+#define NUMBER_SOCKETS            5
 #define RESUME_TIMEOUT            60
 #define SOCKET_RECV_TIMEOUT       20
 #define IOT_CONNECT_TIMEOUT       30
+#define SOCKET_CONNECT_TIMEOUT    60
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,
@@ -44,14 +45,11 @@ struct modem_state {
 };
 
 static const char *const bc26_urc_responses[] = {
-    /* "+NPSMR:", */
-    /* "+CSCON:", */
-    /* "+NSONMI:", */
-    /* "+NNMI:", */
-    /* "+NPING:", */
-    /* "+NPINGERR:", */
+    "+IP:",
+    "SEND OK",
 #ifdef USE_BUFFERED_RECV
     "+QLWDATARECV:",
+    "+QIURC: \"recv\"",
 #endif
     NULL,
 };
@@ -129,6 +127,7 @@ static int bc26_attach(struct cellular *modem)
         "AT+CMEE=1",
         /* "AT+CREG=2", */
         "AT+CPSMS=1,,,\"01011111\",\"00000000\"",
+        "AT+QICFG=\"dataformat\",1,1",
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)
@@ -193,6 +192,22 @@ static int bc26_op_iccid(struct cellular *modem, char *buf, size_t len)
     return 0;
 }
 
+static enum at_response_type scanner_qiopen(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    /* There are response lines after OK. Keep reading. */
+    if (!strcmp(line, "OK"))
+        return AT_RESPONSE_INTERMEDIATE;
+    /* Wait for the urc response */
+    int state = 0;
+    if (sscanf(line, "+QIOPEN: %*d,%d", &state) == 1) {
+        return AT_RESPONSE_FINAL;
+    }
+    return AT_RESPONSE_UNKNOWN;
+}
+
 static enum at_response_type scanner_qlwopen(const char *line, size_t len, void *arg)
 {
     (void) len;
@@ -201,7 +216,7 @@ static enum at_response_type scanner_qlwopen(const char *line, size_t len, void 
     /* There are response lines after OK. Keep reading. */
     if (!strcmp(line, "OK"))
         return AT_RESPONSE_INTERMEDIATE;
-    /* Collect the entire post-OK response until the last C: line. */
+    /* Wait for the urc response */
     int state = 0;
     if (sscanf(line, "+QLWOBSERVE: %d,19,0,0", &state) == 1) {
         return AT_RESPONSE_FINAL;
@@ -242,16 +257,38 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
         }
         return -1;
     } else {
-        /* Create an udp socket. */
-        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        const char *response = at_command(modem->at, "AT+CSOC=1,2,1");
-        at_simple_scanf(response, "+CSOC:%d", &connid);
-        if(connid >= NUMBER_SOCKETS) {
+        int cid = -1;
+        for(int i = 0; i < NUMBER_SOCKETS; i++) {
+            if(SOCKET_STATUS_UNKNOWN == priv->sockets[i].status) {
+                cid = i;
+                break;
+            }
+        }
+        if(cid < 0) {
             return -1;
         }
-        at_command_simple(modem->at, "AT+CSOCON=%d,%d,%s", connid, port, host);
-        struct socket_info *info = &priv->sockets[connid];
-        info->status = SOCKET_STATUS_CONNECTED;
+        /* Create an udp socket. */
+        at_set_timeout(modem->at, SOCKET_CONNECT_TIMEOUT);
+        at_set_command_scanner(modem->at, scanner_qiopen);
+#ifdef USE_BUFFERED_RECV
+        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"UDP\",\"%s\",%d,0,0", cid, host, port);
+#else
+        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"UDP\",\"%s\",%d,0,1", cid, host, port);
+#endif
+
+        int n = 0;
+        int state = 0;
+        if (sscanf(response, "OK\n+QIOPEN: %d,%d", &n, &state) == 2) {
+            if(n == cid && state == 0) {
+                connid = cid;
+                struct socket_info *info = &priv->sockets[cid];
+                info->status = SOCKET_STATUS_CONNECTED;
+            } else {
+                at_command_simple(modem->at, "AT+QICLOSE=%d", cid);
+                struct socket_info *info = &priv->sockets[cid];
+                info->status = SOCKET_STATUS_UNKNOWN;
+            }
+        }
     }
 
     return connid;
@@ -274,7 +311,7 @@ static ssize_t bc26_socket_send(struct cellular *modem, int connid, const void *
         if(info->status == SOCKET_STATUS_CONNECTED) {
             amount = amount > 512 ? 512 : amount;
             at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-            at_send(modem->at, "AT+CSOSEND=%d,%d,", connid, amount * 2);
+            at_send(modem->at, "AT+QISENDEX=%d,%d,", connid, amount);
             at_send_hex(modem->at, buffer, amount);
             at_command_simple(modem->at, "");
             return amount;
@@ -293,8 +330,24 @@ static int scanner_qlwrd(const char *line, size_t len, void *arg)
         return AT_RESPONSE_URC;
     }
 
-    static int read= 0;
+    int read = 0;
     if (sscanf(line, "+QLWRD: %d,%*d", &read) == 1) {
+        return AT_RESPONSE_HEXDATA_FOLLOWS(read);
+    }
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
+static int scanner_qird(const char *line, size_t len, void *arg)
+{
+    (void) arg;
+
+    if (at_prefix_in_table(line, bc26_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    int read = 0;
+    if (sscanf(line, "+QIRD: %d", &read) == 1) {
         return AT_RESPONSE_HEXDATA_FOLLOWS(read);
     }
 
@@ -336,9 +389,7 @@ static char character_handler_lwrecv(char ch, char *line, size_t len, void *arg)
     return ch;
 }
 
-#endif
-
-static int scanner_csonmi(const char *line, size_t len, void *arg)
+static int scanner_qirecv(const char *line, size_t len, void *arg)
 {
     (void) arg;
 
@@ -347,8 +398,7 @@ static int scanner_csonmi(const char *line, size_t len, void *arg)
     }
 
     static size_t read = 0;
-    if (sscanf(line, "+CSONMI: %*d,%d", &read) == 1) {
-        read /= 2;
+    if (sscanf(line, "+QIURC: \"recv\",%*d, %d,", &read) == 1) {
         if (read > 0) {
             return AT_RESPONSE_HEXDATA_FOLLOWS(read);
         }
@@ -359,20 +409,7 @@ static int scanner_csonmi(const char *line, size_t len, void *arg)
     read = 0;
     return AT_RESPONSE_UNKNOWN;
 }
-
-static char character_handler_csonmi(char ch, char *line, size_t len, void *arg) {
-    struct at *priv = (struct at *) arg;
-
-    if(ch == ',') {
-        line[len] = '\0';
-        if (sscanf(line, "+CSONMI: %*d,%d,", &len) == 1) {
-            at_set_character_handler(priv, NULL);
-            ch = '\n';
-        }
-    }
-
-    return ch;
-}
+#endif
 
 static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer, size_t length, int flags)
 {
@@ -440,8 +477,28 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
         if(info->status == SOCKET_STATUS_CONNECTED) {
             /* Perform the read. */
             at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
-            at_set_character_handler(modem->at, character_handler_csonmi);
-            at_set_command_scanner(modem->at, scanner_csonmi);
+#ifdef USE_BUFFERED_RECV
+            at_set_command_scanner(modem->at, scanner_qird);
+            const char *response = at_command(modem->at, "AT+QIRD=%d,%d", connid, length);
+            if (response == NULL) {
+                DBG_W(">>>>NO RESPONSE\r\n");
+                return -2;
+            }
+            if (*response == '\0') {
+                return 0;
+            }
+            /* Find the header line. */
+            int read = 0;
+            if(sscanf(response, "+QIRD:%d", &read) != 1) {
+                DBG_I(">>>>BAD RESPONSE\r\n");
+                return -1;
+            }
+
+            if(read ==0) {
+                return 0;
+            }
+#else
+            at_set_command_scanner(modem->at, scanner_qirecv);
             const char *response = at_command(modem->at, "");
             if (response == NULL) {
                 DBG_W(">>>>NO RESPONSE\r\n");
@@ -451,11 +508,12 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
                 return 0;
             }
             /* Find the header line. */
-            int read;
-            if(sscanf(response, "+CSONMI: %*d,%d", &read) != 1) {
+            int read = 0;
+            if(sscanf(response, "+QIURC: \"recv\",%*d,%d", &read) != 1) {
                 DBG_I(">>>>BAD RESPONSE\r\n");
                 return -1;
             }
+#endif
 
             /* Locate the payload. */
             const char *data = strchr(response, '\n');
@@ -465,7 +523,6 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
             }
 
             /* Copy payload to result buffer. */
-            read /= 2;
             memcpy((char *)buffer, data, read); // TODO: fixme
 
             return read;

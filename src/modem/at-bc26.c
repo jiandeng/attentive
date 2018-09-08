@@ -45,6 +45,7 @@ struct modem_state {
 };
 
 static const char *const bc26_urc_responses[] = {
+    "+QGACT:",
     "+IP:",
     "SEND OK",
 #ifdef USE_BUFFERED_RECV
@@ -144,6 +145,7 @@ static int bc26_detach(struct cellular *modem)
 
 static int bc26_pdp_open(struct cellular *modem, const char *apn)
 {
+    at_command_simple(modem->at, "AT+QGACT=1,1,\"%s\"", apn);
     return 0;
 }
 
@@ -648,7 +650,6 @@ static int bc26_op_reset(struct cellular *modem)
 
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         at_command_simple(modem->at, "AT+CMEE=1");
-        /* at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn); */
         at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
     }
 

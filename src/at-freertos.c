@@ -132,13 +132,13 @@ int at_open(struct at *at)
     return -1;
     }
     const hal_uart_cfg_t cfg = {
-        .baudrate = HAL_UART_BAUDRATE_115200,
+        .baudrate = HAL_CFG_CELL_BAUD,
         .parity = HAL_UART_PARITY_NONE,
         .tx_mode = HAL_UART_TX_MODE_NOCOPY,
         .rx_mode = HAL_UART_RX_MODE_BUFFERED,
         .rx_buf_size = 640,
         .rx_timeout_ms = 200,
-        .tx_timeout_ms = 100,
+        .tx_timeout_ms = 600,
         .tx_pin = HAL_CFG_CELL_TXD,
         .rx_pin = HAL_CFG_CELL_RXD,
     };

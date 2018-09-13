@@ -125,7 +125,7 @@ static int sim7020_attach(struct cellular *modem)
     static const char *const init_strings[] = {
         "AT+CMEE=1",
         /* "AT+CREG=2", */
-        "AT+CPSMS=1,,,\"01011111\",\"00000000\"",
+        "AT+CPSMS=0",
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)

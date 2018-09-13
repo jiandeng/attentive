@@ -127,7 +127,7 @@ static int bc26_attach(struct cellular *modem)
     static const char *const init_strings[] = {
         "AT+CMEE=1",
         /* "AT+CREG=2", */
-        "AT+CPSMS=1,,,\"01011111\",\"00000000\"",
+        "AT+CPSMS=0",
         "AT+QICFG=\"dataformat\",1,1",
         NULL
     };

@@ -31,6 +31,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 struct at_freertos {
     struct at at;
     int timeout;
+    int delay;
     char response[AT_BUF_SIZE];
 
     TaskHandle_t xTask;
@@ -227,6 +228,13 @@ void at_set_timeout(struct at *at, int timeout)
     priv->timeout = timeout;
 }
 
+void at_set_delay(struct at *at, int delay)
+{
+    struct at_freertos *priv = (struct at_freertos *) at;
+
+    priv->delay = pdMS_TO_TICKS(delay) + 1;
+}
+
 void at_set_character_handler(struct at *at, at_character_handler_t handler)
 {
     at_parser_set_character_handler(at->parser, handler);
@@ -247,6 +255,11 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
     if (!priv->open) {
         /*xSemaphoreGive(priv->xMutex);*/
         return NULL;
+    }
+
+    /* Delay between commands */
+    if(priv->delay) {
+        vTaskDelay(priv->delay);
     }
 
     /* Prepare parser. */

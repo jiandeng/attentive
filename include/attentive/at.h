@@ -117,6 +117,14 @@ void at_expect_dataprompt(struct at *at, const char *prompt);
 void at_set_timeout(struct at *at, int timeout);
 
 /**
+ * Set command delay.
+ *
+ * @param at AT channel instance.
+ * @param delay Delay in milliseconds (zero to disable).
+ */
+void at_set_delay(struct at *at, int delay);
+
+/**
  * Send an AT command and receive a response. Accepts printf-compatible
  * format and arguments.
  *

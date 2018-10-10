@@ -150,11 +150,17 @@ int cellular_op_rssi(struct cellular *modem)
 int cellular_op_cops(struct cellular *modem)
 {
     int ops = -1;
+    int rat = -1;
 
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT+COPS=3,2");
     const char *response = at_command(modem->at, "AT+COPS?");
-    at_simple_scanf(response, "+COPS: %*d,%*d,\"%d\"", &ops);
+    if(response == NULL) {
+        return -2;
+    }
+    if(sscanf(response, "+COPS: %*d,%*d,\"%d\",%d", &ops, &rat) == 2) {
+        ops |= rat << 24;
+    }
 
     return ops;
 }

@@ -440,24 +440,6 @@ static int nb501_op_creg(struct cellular *modem)
     return creg;
 }
 
-static int nb501_op_cops(struct cellular *modem)
-{
-    int ops = -1;
-    int rat = -1;
-
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    const char *response = at_command(modem->at, "AT+COPS?");
-    if(response == NULL) {
-        return -2;
-    }
-    int ret = sscanf(response, "+COPS: %*d,%*d,\"%d\",%d", &ops, &rat);
-    if(ret == 2) {
-        ops |= rat << 24;
-    }
-
-    return ops;
-}
-
 static int nb501_op_imei(struct cellular *modem, char *buf, size_t len)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
@@ -597,7 +579,7 @@ static const struct cellular_ops nb501_ops = {
     .creg = nb501_op_creg,
     .cgatt = cellular_op_cgatt,
     .rssi = cellular_op_rssi,
-    .cops = nb501_op_cops,
+    .cops = cellular_op_cops,
     .test = cellular_op_test,
     .command = cellular_op_command,
     .sms = cellular_op_sms,

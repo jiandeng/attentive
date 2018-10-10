@@ -591,24 +591,6 @@ static int bc26_op_creg(struct cellular *modem)
     return creg;
 }
 
-static int bc26_op_cops(struct cellular *modem)
-{
-    int ops = -1;
-    int rat = -1;
-
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    const char *response = at_command(modem->at, "AT+COPS?");
-    if(response == NULL) {
-        return -2;
-    }
-    int ret = sscanf(response, "+COPS: %*d,%*d,\"%d\",%d", &ops, &rat);
-    if(ret == 2) {
-        ops |= rat << 24;
-    }
-
-    return ops;
-}
-
 // static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
 //     (void) arg;
 
@@ -712,7 +694,7 @@ static const struct cellular_ops bc26_ops = {
     .creg = bc26_op_creg,
     .cgatt = cellular_op_cgatt,
     .rssi = cellular_op_rssi,
-    .cops = bc26_op_cops,
+    .cops = cellular_op_cops,
     .test = cellular_op_test,
     .command = cellular_op_command,
     .sms = cellular_op_sms,

@@ -122,7 +122,9 @@ static int ue866_pdp_open(struct cellular *modem, const char *apn)
     /* Skip the configuration if context is already open. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     const char *response = at_command(modem->at, "AT#SGACT?");
-    at_simple_scanf(response, "#SGACT: 1,%d", &active);
+    if(strlen(response)) {
+        at_simple_scanf(response, "#SGACT: 1,%d", &active);
+    }
     if(active) {
         return 0;
     }

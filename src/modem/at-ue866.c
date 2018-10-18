@@ -82,7 +82,7 @@ static int ue866_attach(struct cellular *modem)
 {
     at_set_callbacks(modem->at, &ue866_callbacks, (void *) modem);
 
-    at_set_delay(modem->at, 20);
+    at_set_delay(modem->at, 30);
     at_set_timeout(modem->at, 1);
 
     /* Perform autobauding. */

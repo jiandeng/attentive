@@ -238,21 +238,29 @@ static ssize_t ue866_socket_recv(struct cellular *modem, int connid, void *buffe
         return -1;
     }
     char tries = 4;
-    while ((cnt < (int)length) && tries--){
+    while ((cnt < (int)length) && tries--) {
         int chunk = (int) length - cnt;
         /* Limit read size to avoid overflowing AT response buffer. */
         chunk = chunk > 480 ? 480 : chunk;
 
         /* Perform the read. */
+        int read = -1;
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        at_set_command_scanner(modem->at, scanner_srecv);
-        const char *response = at_command(modem->at, "AT#SRECV=%d,%d", connid, chunk);
+        const char *response = at_command(modem->at, "AT#SI=%d", connid);
+        sscanf(response, "#SI: %*d,%*d,%*d,%d,%*d", &read);
+        if(read > 0) {
+            at_set_command_scanner(modem->at, scanner_srecv);
+            response = at_command(modem->at, "AT#SRECV=%d,%d", connid, chunk);
+        } else if(read == 0) {
+            response = "#SRECV: 1,0";
+        } else {
+            response = NULL;
+        }
         if (response == NULL) {
             DBG_W(">>>>NO RESPONSE\r\n");
             return -2;
         }
         /* Find the header line. */
-        int read;
         // TODO:
         // 1. connid is not checked
         // 2. there is possible a bug here.

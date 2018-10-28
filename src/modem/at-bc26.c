@@ -20,7 +20,7 @@
 /* Defines -------------------------------------------------------------------*/
 DBG_SET_LEVEL(DBG_LEVEL_I);
 
-// #define USE_BUFFERED_RECV
+#define USE_BUFFERED_RECV
 
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            5

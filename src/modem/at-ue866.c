@@ -246,6 +246,7 @@ static ssize_t ue866_socket_recv(struct cellular *modem, int connid, void *buffe
         /* Perform the read. */
         int read = -1;
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        vTaskDelay(30);
         const char *response = at_command(modem->at, "AT#SI=%d", connid);
         sscanf(response, "#SI: %*d,%*d,%*d,%d,%*d", &read);
         if(read > 0) {

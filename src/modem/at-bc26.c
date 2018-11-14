@@ -334,7 +334,9 @@ static int scanner_qlwrd(const char *line, size_t len, void *arg)
 
     int read = 0;
     if (sscanf(line, "+QLWRD: %d,%*d", &read) == 1) {
-        return AT_RESPONSE_HEXDATA_FOLLOWS(read);
+        if(read > 0) {
+            return AT_RESPONSE_HEXDATA_FOLLOWS(read);
+        }
     }
 
     return AT_RESPONSE_UNKNOWN;
@@ -350,7 +352,9 @@ static int scanner_qird(const char *line, size_t len, void *arg)
 
     int read = 0;
     if (sscanf(line, "+QIRD: %d", &read) == 1) {
-        return AT_RESPONSE_HEXDATA_FOLLOWS(read);
+        if(read > 0) {
+            return AT_RESPONSE_HEXDATA_FOLLOWS(read);
+        }
     }
 
     return AT_RESPONSE_UNKNOWN;

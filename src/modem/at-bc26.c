@@ -422,8 +422,8 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
         struct socket_info *info = &priv->iot_sock;
         if(info->status == SOCKET_STATUS_CONNECTED) {
             /* Perform the read. */
-            at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
 #ifdef USE_BUFFERED_RECV
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
             at_set_command_scanner(modem->at, scanner_qlwrd);
             const char *response = at_command(modem->at, "AT+QLWRD=%d", length);
             if (response == NULL) {
@@ -444,6 +444,7 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
                 return 0;
             }
 #else
+            at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
             at_set_character_handler(modem->at, character_handler_lwrecv);
             at_set_command_scanner(modem->at, scanner_lwrecv);
             const char *response = at_command(modem->at, "");
@@ -478,8 +479,8 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
         struct socket_info *info = &priv->sockets[connid];
         if(info->status == SOCKET_STATUS_CONNECTED) {
             /* Perform the read. */
-            at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
 #ifdef USE_BUFFERED_RECV
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
             at_set_command_scanner(modem->at, scanner_qird);
             const char *response = at_command(modem->at, "AT+QIRD=%d,%d", connid, length);
             if (response == NULL) {
@@ -500,6 +501,7 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
                 return 0;
             }
 #else
+            at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
             at_set_command_scanner(modem->at, scanner_qirecv);
             const char *response = at_command(modem->at, "");
             if (response == NULL) {

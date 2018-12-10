@@ -128,7 +128,7 @@ int at_open(struct at *at)
         FreeRTOS_ioctl(priv->xUART, ioctlSET_RX_TIMEOUT, (void*)pdMS_TO_TICKS(100));
     }
 #else
-    priv->xUART= hal_uart_get_instance(0);
+    priv->xUART= hal_uart_get_instance(HAL_CFG_CELL_UART);
     if(!priv->xUART) {
     return -1;
     }

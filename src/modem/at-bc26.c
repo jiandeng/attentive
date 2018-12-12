@@ -55,6 +55,14 @@ static const char *const bc26_urc_responses[] = {
     NULL,
 };
 
+static const char *const bc26_init_commands[] = {
+    "AT+CMEE=1",
+    "AT+CPSMS=0",
+    // "AT+CPSMS=1,,,01011000,00000000",
+    "AT+QICFG=\"dataformat\",1,1",
+    NULL,
+};
+
 static char IMEI[CELLULAR_IMEI_LENGTH + 1] = {0};
 
 struct cellular_bc26 {
@@ -104,6 +112,42 @@ static const struct at_callbacks bc26_callbacks = {
 };
 
 
+static int bc26_op_reset(struct cellular *modem)
+{
+    struct cellular_bc26 *priv = (struct cellular_bc26 *) modem;
+
+    // Cleanup
+    memset(&priv->state, 0, sizeof(priv->state));
+    memset(&priv->iot_sock, 0, sizeof(priv->iot_sock));
+    memset(priv->sockets, 0, sizeof(priv->sockets));
+
+    // Set CDP
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    /* at_command_simple(modem->at, "AT+CFUN=0"); */
+    /* at_command_simple(modem->at, "AT+NCDP=180.101.147.115"); */
+
+    // Set band
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT+QBAND=4,5,8,3,1");
+
+    // Reboot
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command(modem->at, "AT+QRST=1");
+    if(at_command(modem->at, "ATE0") == NULL) {
+        return -2;
+    } else {
+        /* Delay 2 seconds to continue */
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        /* Initialize modem. */
+        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        for (const char *const *command=bc26_init_commands; *command; command++) {
+            at_command_simple(modem->at, "%s", *command);
+        }
+    }
+
+    return 0;
+}
 
 
 static int bc26_attach(struct cellular *modem)
@@ -124,15 +168,16 @@ static int bc26_attach(struct cellular *modem)
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     /* Initialize modem. */
-    static const char *const init_strings[] = {
-        "AT+CMEE=1",
-        /* "AT+CREG=2", */
-        "AT+CPSMS=0",
-        "AT+QICFG=\"dataformat\",1,1",
-        NULL
-    };
-    for (const char *const *command=init_strings; *command; command++)
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT*MBSC?");
+    if(!response) {
+        return -2;
+    } else if(strncmp(response, "*MBSC: 1,3,5,8", strlen("*MBSC: 1,3,5,8"))) {
+        return bc26_op_reset(modem);
+    }
+    for (const char *const *command=bc26_init_commands; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
+    }
 
     return 0;
 }
@@ -597,53 +642,6 @@ static int bc26_op_creg(struct cellular *modem)
     return creg;
 }
 
-// static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
-//     (void) arg;
-
-//     if(ch > 0x1F && ch < 0x7F) {
-
-//     } else if(ch == '\r' || ch == '\n') {
-
-//     } else {
-//         ch = ' ';
-//         line[len - 1] = ch;
-//     }
-
-//     return ch;
-// }
-
-static int bc26_op_reset(struct cellular *modem)
-{
-    struct cellular_bc26 *priv = (struct cellular_bc26 *) modem;
-
-    // Cleanup
-    memset(&priv->state, 0, sizeof(priv->state));
-    memset(&priv->iot_sock, 0, sizeof(priv->iot_sock));
-    memset(priv->sockets, 0, sizeof(priv->sockets));
-
-    // Set CDP
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    /* at_command_simple(modem->at, "AT+CFUN=0"); */
-    /* at_command_simple(modem->at, "AT+NCDP=180.101.147.115"); */
-
-    // Reboot
-    /* at_set_timeout(modem->at, AT_TIMEOUT_LONG); */
-    /* at_set_character_handler(modem->at, character_handler_nrb); */
-    /* if(at_command(modem->at, "AT+NRB") == NULL) { */
-    /*     return -2; */
-    /* } else { */
-    {
-        /* Delay 2 seconds to continue */
-        vTaskDelay(pdMS_TO_TICKS(2000));
-
-        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        at_command_simple(modem->at, "AT+CMEE=1");
-        at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
-    }
-
-    return 0;
-}
-
 static int bc26_suspend(struct cellular *modem)
 {
     at_suspend(modem->at);
@@ -663,7 +661,6 @@ static int bc26_resume(struct cellular *modem)
     at_command_simple(modem->at, "AT+NPSMR=1");
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
 
     int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");

@@ -638,7 +638,7 @@ static int bc26_op_reset(struct cellular *modem)
 
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         at_command_simple(modem->at, "AT+CMEE=1");
-        at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+        at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
     }
 
     return 0;
@@ -663,7 +663,7 @@ static int bc26_resume(struct cellular *modem)
     at_command_simple(modem->at, "AT+NPSMR=1");
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+    at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
 
     int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");

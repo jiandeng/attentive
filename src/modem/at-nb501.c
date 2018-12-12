@@ -103,7 +103,54 @@ static const struct at_callbacks nb501_callbacks = {
 };
 
 
+static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
+    (void) arg;
 
+    if(ch > 0x1F && ch < 0x7F) {
+
+    } else if(ch == '\r' || ch == '\n') {
+
+    } else {
+        ch = ' ';
+        line[len - 1] = ch;
+    }
+
+    return ch;
+}
+
+static int nb501_op_reset(struct cellular *modem)
+{
+    struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
+
+    // Cleanup
+    memset(&priv->state, 0, sizeof(priv->state));
+    memset(priv->sockets, 0, sizeof(priv->sockets));
+
+    // Set CDP
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    at_command_simple(modem->at, "AT+CFUN=0");
+    at_command_simple(modem->at, "AT+NCDP=180.101.147.115");
+
+    // Reboot
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_set_character_handler(modem->at, character_handler_nrb);
+    if(at_command(modem->at, "AT+NRB") == NULL) {
+        return -2;
+    } else {
+        /* Delay 2 seconds to continue */
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        /* Initialize modem. */
+        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        for (const char *const *command=nb501_init_commands; *command; command++) {
+            at_command_simple(modem->at, "%s", *command);
+        }
+        at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
+        at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
+    }
+
+    return 0;
+}
 
 static int nb501_attach(struct cellular *modem)
 {
@@ -133,7 +180,6 @@ static int nb501_attach(struct cellular *modem)
     if(!response) {
         return -2;
     } else if(strncmp(response, "+NCDP:180.101.147.115", strlen("+NCDP:180.101.147.115"))) {
-        int nb501_op_reset(struct cellular *modem);
         return nb501_op_reset(modem);
     }
 
@@ -141,7 +187,7 @@ static int nb501_attach(struct cellular *modem)
         at_command_simple(modem->at, "%s", *command);
     }
     at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+    at_command_simple(modem->at, "AT+CPSMS=1,,,01011000,00000000");
 
     return 0;
 }
@@ -471,55 +517,6 @@ static int nb501_op_nccid(struct cellular *modem, char *buf, size_t len)
     return 0;
 }
 
-static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
-    (void) arg;
-
-    if(ch > 0x1F && ch < 0x7F) {
-
-    } else if(ch == '\r' || ch == '\n') {
-
-    } else {
-        ch = ' ';
-        line[len - 1] = ch;
-    }
-
-    return ch;
-}
-
-static int nb501_op_reset(struct cellular *modem)
-{
-    struct cellular_nb501 *priv = (struct cellular_nb501 *) modem;
-
-    // Cleanup
-    memset(&priv->state, 0, sizeof(priv->state));
-    memset(priv->sockets, 0, sizeof(priv->sockets));
-
-    // Set CDP
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    at_command_simple(modem->at, "AT+CFUN=0");
-    at_command_simple(modem->at, "AT+NCDP=180.101.147.115");
-
-    // Reboot
-    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-    at_set_character_handler(modem->at, character_handler_nrb);
-    if(at_command(modem->at, "AT+NRB") == NULL) {
-        return -2;
-    } else {
-        /* Delay 2 seconds to continue */
-        vTaskDelay(pdMS_TO_TICKS(2000));
-
-        /* Initialize modem. */
-        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        for (const char *const *command=nb501_init_commands; *command; command++) {
-            at_command_simple(modem->at, "%s", *command);
-        }
-        at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
-        at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
-    }
-
-    return 0;
-}
-
 static int nb501_suspend(struct cellular *modem)
 {
     at_suspend(modem->at);
@@ -539,7 +536,7 @@ static int nb501_resume(struct cellular *modem)
         at_command_simple(modem->at, "%s", *command);
     }
     at_command(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn);
-    at_command(modem->at, "AT+CPSMS=1,,,01011111,00000000");
+    at_command(modem->at, "AT+CPSMS=1,,,01011000,00000000");
 
     at_command_simple(modem->at, "AT+CSCON?");
     at_command_simple(modem->at, "AT+NPSMR?");

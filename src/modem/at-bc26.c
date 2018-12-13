@@ -387,6 +387,20 @@ static int scanner_qlwrd(const char *line, size_t len, void *arg)
     return AT_RESPONSE_UNKNOWN;
 }
 
+static char character_handler_qird(char ch, char *line, size_t len, void *arg) {
+    struct at *priv = (struct at *) arg;
+
+    if(ch == ',') {
+        line[len] = '\0';
+        if (sscanf(line, "+QIRD: %d,", &len) == 1) {
+            at_set_character_handler(priv, NULL);
+            ch = '\n';
+        }
+    }
+
+    return ch;
+}
+
 static int scanner_qird(const char *line, size_t len, void *arg)
 {
     (void) arg;
@@ -530,6 +544,7 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
             /* Perform the read. */
 #ifdef USE_BUFFERED_RECV
             at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            at_set_character_handler(modem->at, character_handler_qird);
             at_set_command_scanner(modem->at, scanner_qird);
             const char *response = at_command(modem->at, "AT+QIRD=%d,%d", connid, length);
             if (response == NULL) {

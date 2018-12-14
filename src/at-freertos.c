@@ -17,8 +17,10 @@
 
 #ifdef USE_FREERTOS_IO
 #include "FreeRTOS_IO.h"
+#include "RTC.h"
 #else
 #include "hal_uart.h"
+#include "hal_rtc.h"
 #include "hal_cfg.h"
 #endif
 
@@ -105,8 +107,10 @@ struct at *at_alloc_freertos(void)
     // CAUSING: create the reader task at high priority
     priv->xSem = xSemaphoreCreateBinary();
 #ifdef USE_FREERTOS_IO
+    LOG_AT("[AT] -------- [%d]\r\n", RTC_GetSeconds());
     xTaskCreate(at_reader_thread, "ATReadTask", configMINIMAL_STACK_SIZE * 2, priv, 4, &priv->xTask);
 #else
+    LOG_AT("[AT] -------- [%d]\r\n", hal_rtc_get_time());
     xTaskCreate(at_reader_thread, "AT", 320, priv, 2, &priv->xTask);
 #endif
 
@@ -324,6 +328,7 @@ const char *at_command(struct at *at, const char *format, ...)
     }
 
     DBG_D("<< %s\r\n", line);
+    LOG_AT("<< %s\r\n", line);
 
     /* Append modem-style newline. */
     line[len++] = '\r';
@@ -337,6 +342,7 @@ const char *at_command_raw(struct at *at, const void *data, size_t size)
     struct at_freertos *priv = (struct at_freertos *) at;
 
     DBG_D("<< [%d bytes]\n", size);
+    LOG_AT("<< [%d bytes]\n", size);
 
     return _at_command(priv, data, size);
 }
@@ -375,6 +381,7 @@ bool at_send(struct at *at, const char *format, ...)
     }
 
     DBG_D("S< %s\n", line);
+    LOG_AT("S< %s\n", line);
 
     /* Send the string. */
     return _at_send(priv, line, len);
@@ -385,6 +392,7 @@ bool at_send_raw(struct at *at, const void *data, size_t size)
     struct at_freertos *priv = (struct at_freertos *) at;
 
     DBG_D("R< [%d bytes]\n", size);
+    LOG_AT("R< [%d bytes]\n", size);
 
     return _at_send(priv, data, size);
 }
@@ -402,6 +410,7 @@ bool at_send_hex(struct at *at, const void *data, size_t size)
     struct at_freertos *priv = (struct at_freertos *) at;
 
     DBG_D("H< [%d bytes]\n", size);
+    LOG_AT("H< [%d bytes]\n", size);
 
     int oset = 0;
     while(oset < size) {

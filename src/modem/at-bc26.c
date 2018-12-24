@@ -126,10 +126,6 @@ static int bc26_op_reset(struct cellular *modem)
     /* at_command_simple(modem->at, "AT+CFUN=0"); */
     /* at_command_simple(modem->at, "AT+NCDP=180.101.147.115"); */
 
-    // Set band
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    at_command_simple(modem->at, "AT+QBAND=4,5,8,3,1");
-
     // Reboot
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command(modem->at, "AT+QRST=1");
@@ -169,12 +165,6 @@ static int bc26_attach(struct cellular *modem)
 
     /* Initialize modem. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    const char *response = at_command(modem->at, "AT*MBSC?");
-    if(!response) {
-        return -2;
-    } else if(strncmp(response, "*MBSC: 1,3,5,8", strlen("*MBSC: 1,3,5,8"))) {
-        return bc26_op_reset(modem);
-    }
     for (const char *const *command=bc26_init_commands; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
     }

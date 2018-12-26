@@ -308,9 +308,9 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
         at_set_timeout(modem->at, SOCKET_CONNECT_TIMEOUT);
         at_set_command_scanner(modem->at, scanner_qiopen);
 #ifdef USE_BUFFERED_RECV
-        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"UDP\",\"%s\",%d,0,0", cid, host, port);
+        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,0", cid, host, port);
 #else
-        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"UDP\",\"%s\",%d,0,1", cid, host, port);
+        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,1", cid, host, port);
 #endif
 
         int n = 0;

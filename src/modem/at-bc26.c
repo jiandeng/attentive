@@ -328,30 +328,38 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
         if(cid < 0) {
             return -1;
         }
-        /* Create an udp socket. */
-        at_set_timeout(modem->at, SOCKET_CONNECT_TIMEOUT);
-        at_set_command_scanner(modem->at, scanner_qiopen);
+
+        int retries = 3;
+        do {
+            at_set_timeout(modem->at, SOCKET_CONNECT_TIMEOUT);
+            at_set_command_scanner(modem->at, scanner_qiopen);
+
 #ifdef USE_BUFFERED_RECV
-        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,0", cid, host, port);
+            const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,0", cid, host, port);
 #else
-        const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,1", cid, host, port);
+            const char *response = at_command(modem->at, "AT+QIOPEN=1,%d,\"TCP\",\"%s\",%d,0,1", cid, host, port);
 #endif
 
-        int n = 0;
-        int state = 0;
-        if (sscanf(response, "OK\n+QIOPEN: %d,%d", &n, &state) == 2) {
-            if(n == cid && state == 0) {
-                connid = cid;
-                struct socket_info *info = &priv->sockets[cid];
-                info->status = SOCKET_STATUS_CONNECTED;
-            } else {
-                at_set_command_scanner(modem->at, scanner_close);
-                at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-                at_command_simple(modem->at, "AT+QICLOSE=%d", cid);
-                struct socket_info *info = &priv->sockets[cid];
-                info->status = SOCKET_STATUS_UNKNOWN;
+            int n = 0;
+            int state = 0;
+            if (sscanf(response, "OK\n+QIOPEN: %d,%d", &n, &state) == 2) {
+                if(n == cid && state == 0) {
+                    connid = cid;
+                    struct socket_info *info = &priv->sockets[cid];
+                    info->status = SOCKET_STATUS_CONNECTED;
+                    break;
+                } else {
+                    at_set_command_scanner(modem->at, scanner_close);
+                    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+                    at_command(modem->at, "AT+QICLOSE=%d", cid);
+                    struct socket_info *info = &priv->sockets[cid];
+                    info->status = SOCKET_STATUS_UNKNOWN;
+                    if(state != 565) { // DNS parse failed
+                        break;
+                    }
+                }
             }
-        }
+        } while(--retries);
     }
 
     return connid;

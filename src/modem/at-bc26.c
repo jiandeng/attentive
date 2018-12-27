@@ -264,6 +264,20 @@ static enum at_response_type scanner_qlwopen(const char *line, size_t len, void 
     return AT_RESPONSE_UNKNOWN;
 }
 
+static enum at_response_type scanner_close(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    /* There are response lines after OK. Keep reading. */
+    if (!strcmp(line, "OK"))
+        return AT_RESPONSE_INTERMEDIATE;
+    if (!strncmp(line, "CLOSE OK", strlen("CLOSE OK"))) {
+        return AT_RESPONSE_FINAL;
+    }
+    return AT_RESPONSE_UNKNOWN;
+}
+
 static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
     struct cellular_bc26 *priv = (struct cellular_bc26 *) modem;
@@ -321,6 +335,8 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
                 struct socket_info *info = &priv->sockets[cid];
                 info->status = SOCKET_STATUS_CONNECTED;
             } else {
+                at_set_command_scanner(modem->at, scanner_close);
+                at_set_timeout(modem->at, AT_TIMEOUT_LONG);
                 at_command_simple(modem->at, "AT+QICLOSE=%d", cid);
                 struct socket_info *info = &priv->sockets[cid];
                 info->status = SOCKET_STATUS_UNKNOWN;
@@ -593,20 +609,6 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
 static int bc26_socket_waitack(struct cellular *modem, int connid)
 {
     return 0;
-}
-
-static enum at_response_type scanner_close(const char *line, size_t len, void *arg)
-{
-    (void) len;
-    (void) arg;
-
-    /* There are response lines after OK. Keep reading. */
-    if (!strcmp(line, "OK"))
-        return AT_RESPONSE_INTERMEDIATE;
-    if (!strncmp(line, "CLOSE OK", strlen("CLOSE OK"))) {
-        return AT_RESPONSE_FINAL;
-    }
-    return AT_RESPONSE_UNKNOWN;
 }
 
 static int bc26_socket_close(struct cellular *modem, int connid)

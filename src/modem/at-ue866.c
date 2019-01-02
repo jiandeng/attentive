@@ -180,10 +180,21 @@ static int ue866_socket_connect(struct cellular *modem, const char *host, uint16
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     at_command_simple(modem->at, "AT#SCFG=%d,1,1024,60,%d,50", connid, TCP_CONNECT_TIMEOUT * 10);
     priv->socket_status[connid] = SOCKET_STATUS_UNKNOWN;
-    /* Send connection request. */
-    at_set_timeout(modem->at, TCP_CONNECT_TIMEOUT);
-    at_command_simple(modem->at, "AT#SD=%d,0,%d,\"%s\",0,0,1", connid, port, host);
-    priv->socket_status[connid] = SOCKET_STATUS_CONNECTED;
+
+    int retries = 3;
+    do {
+        at_set_timeout(modem->at, TCP_CONNECT_TIMEOUT + 3);
+        const char* response = at_command(modem->at, "AT#SD=%d,0,%d,\"%s\",0,0,1", connid, port, host);
+        if(!response) {
+            return -2;
+        } else if(!*response) {
+            priv->socket_status[connid] = SOCKET_STATUS_CONNECTED;
+            break;
+        } else {
+            at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+            at_command(modem->at, "AT#SH=%d", connid);
+        }
+    } while(--retries);
 
     return connid;
 }

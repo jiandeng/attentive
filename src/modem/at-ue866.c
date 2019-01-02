@@ -23,7 +23,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 #define AUTOBAUD_ATTEMPTS         10
 #define WAITACK_TIMEOUT           24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define UPSDA_TIMEOUT             40        // Should be 150 seconds, According to the AT_Command_Manual
-#define TCP_CONNECT_TIMEOUT       (20 + 3)  // According to the AT_Command_Manual
+#define TCP_CONNECT_TIMEOUT       40        // According to the AT_Command_Manual
 #define PWROFF_TIMEOUT            (10 + 3)  // According to the AT_Command_Manual
 #define UE866_NSOCKETS             7        // According to the AT_Command_Manual
 
@@ -176,8 +176,9 @@ static int ue866_socket_connect(struct cellular *modem, const char *host, uint16
     if(connid < 0) {
         return -1;
     }
+
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    at_command_simple(modem->at, "AT#SCFG=%d,1,1024,60,600,50", connid);
+    at_command_simple(modem->at, "AT#SCFG=%d,1,1024,60,%d,50", connid, TCP_CONNECT_TIMEOUT * 10);
     priv->socket_status[connid] = SOCKET_STATUS_UNKNOWN;
     /* Send connection request. */
     at_set_timeout(modem->at, TCP_CONNECT_TIMEOUT);

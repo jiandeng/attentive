@@ -193,9 +193,11 @@ static int me3616_attach(struct cellular *modem)
 
     /* Initialize modem. */
     static const char *const init_strings[] = {
+        "AT+CFUN=1",
         "AT+CMEE=1",
         /* "AT+CREG=2", */
-        "AT+CPSMS=1,,,\"01011111\",\"00000000\"",
+        "AT+CPSMS=1,,,\"01011111\",\"00000101\"",
+        "AT+ZSLR=1",   //系统启动后处于可睡眠状态
         "AT*MNBIOTEVENT=1,1",
         //"AT+ESOREADEN=1",
         NULL
@@ -568,6 +570,7 @@ static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
 
 static int me3616_op_reset(struct cellular *modem)
 {
+    DBG_I("AT-3616: Resetting\r\n");
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
 
     // Cleanup
@@ -591,13 +594,11 @@ static int me3616_op_reset(struct cellular *modem)
 
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         at_command_simple(modem->at,"AT");
-        at_command_simple(modem->at,"AT*MNBIOTEVENT=1,1");
+        //at_command_simple(modem->at,"AT*MNBIOTEVENT=1,1");
         at_command_simple(modem->at, "AT+CMEE=1");
         at_command_simple(modem->at,"AT+CEREG=1");
-        /* at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", modem->apn); */
-        //at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000001");
-        at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000100\"");
-        
+        at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000101\""); //8S后睡眠
+        at_command_simple(modem->at,"AT+ZSLR=1");   //系统启动后处于可睡眠状态
     }
 
     return 0;
@@ -611,24 +612,30 @@ static int me3616_suspend(struct cellular *modem)
 
 static int me3616_resume(struct cellular *modem)
 {
+    DBG_I("AT-3616: Resuming...\r\n");
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
 
     //at_resume(modem->at);
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-
+    
+    at_command_simple(modem->at, "AT+CFUN=1");
     at_command_simple(modem->at, "AT+CMEE=1");
-    at_command_simple(modem->at, "AT+CSCON=1");
-    at_command_simple(modem->at, "AT+NPSMR=1");
-    at_command_simple(modem->at, "AT+CSCON?");
-    at_command_simple(modem->at, "AT+NPSMR?");
-    at_command_simple(modem->at, "AT+CPSMS=1,,,01011111,00000000");
-
+    //at_command_simple(modem->at, "AT+CSCON=1");
+    //at_command_simple(modem->at, "AT+NPSMR=1");
+    //at_command_simple(modem->at, "AT+CSCON?");
+    //at_command_simple(modem->at, "AT+NPSMR?");
+    at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000101\""); //10S后睡眠
+    at_command_simple(modem->at,"AT+ZSLR=1");   //系统启动后处于可睡眠状态
     int wake_count = 0;
-    const char* response = at_command(modem->at, "AT+NPING=192.168.1.1");
+    DBG_I("AT-3616: Ping www.baidu.com\r\n");
+    const char* response = at_command(modem->at, "AT+NPING=www.baidu.com");
     if(response || *response == '\0') {
+        DBG_I("AT-3616: Ping rsp %s\r\n",response);
         for(int i = 0; i < RESUME_TIMEOUT; i++) {
+            DBG_I("AT-3616: cycle performing ping\r\n");
             wake_count += !priv->state.power_saving;
             if(priv->state.radio_connected) {
+                DBG_I("AT-3616: priv->state.radio_connected=0\r\n");
                 return 0;
             } else if(wake_count && priv->state.power_saving) {
                 break;

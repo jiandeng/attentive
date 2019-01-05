@@ -33,6 +33,11 @@ enum socket_status {
     SOCKET_STATUS_CONNECTED = 1,
 };
 
+enum socket_error {
+    SOCKET_ERROR_DNS = 1,
+    SOCKET_ERROR_TIMEOUT,
+};
+
 static const char *const ue866_urc_responses[] = {
     "SRING: ",        /* Socket data received */
     NULL
@@ -191,8 +196,18 @@ static int ue866_socket_connect(struct cellular *modem, const char *host, uint16
             priv->socket_status[connid] = SOCKET_STATUS_CONNECTED;
             break;
         } else {
+            int err = 0;
+            if(!strncmp(response, "+CME ERROR: timeout in opening socket", strlen("+CME ERROR: timeout in opening socket"))) {
+                err = SOCKET_ERROR_TIMEOUT;
+            // } else if(!strncmp(response, "+CME ERROR: can not resolve DN", strlen("+CME ERROR: can not resolve DN"))) {
+            //     err = SOCKET_ERROR_DNS;
+            }
             at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-            at_command(modem->at, "AT#SH=%d", connid);
+            at_command_simple(modem->at, "AT#SH=%d", connid);
+            if(err == SOCKET_ERROR_TIMEOUT) {
+                at_command_simple(modem->at, "AT+CGATT=0");
+                at_command_simple(modem->at, "AT+CGATT=1");
+            }
         }
     } while(--retries);
 

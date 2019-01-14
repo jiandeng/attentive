@@ -12,7 +12,7 @@
 #include <attentive/cellular.h>
 
 #define AT_TIMEOUT_SHORT          2
-#define AT_TIMEOUT_LONG           5
+#define AT_TIMEOUT_LONG           10
 #define AT_TIMEOUT_SMS            47
 
 /**

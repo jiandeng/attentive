@@ -164,12 +164,12 @@ static int sim7020_socket_connect(struct cellular *modem, const char *host, uint
     struct cellular_sim7020 *priv = (struct cellular_sim7020 *) modem;
     int connid = -1;
 
-    if(host == NULL || *host == 0 || port == 0) {
+    if(port == 5683) {
         struct socket_info *info = &priv->iot_sock;
         if(info->status != SOCKET_STATUS_CONNECTED) {
             if(cellular_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
                 at_set_timeout(modem->at, IOT_CONNECT_TIMEOUT);
-                at_command_simple(modem->at, "AT+CM2MCLINEW=180.101.147.115,5683,\"%s\",90", IMEI);
+                at_command_simple(modem->at, "AT+CM2MCLINEW=%s,%d,\"%s\",90", host, port, IMEI);
                 for(int i = 0; i < IOT_CONNECT_TIMEOUT; i++) {
                     if(SOCKET_STATUS_CONNECTED == info->status) {
                         return CELLULAR_NB_CONNID;

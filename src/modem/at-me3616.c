@@ -163,7 +163,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
     // if(connid >= 0) {
     //     hook_me3616(modem->dev_obj, connid ,data, data_size);
     // }
-    
+
 }
 */
 static const struct at_callbacks me3616_callbacks = {
@@ -178,7 +178,7 @@ static int me3616_attach(struct cellular *modem)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     vTaskDelay(pdMS_TO_TICKS(2000));
     //at_command(modem->at,"AT+ZRST");
-    
+
     /* Perform autobauding. */
     for (int i=0; i<AUTOBAUD_ATTEMPTS; i++) {
         const char *response = at_command(modem->at, "ATE0");
@@ -238,7 +238,7 @@ static int me3616_socket_connect(struct cellular *modem, const char *host, uint1
 {
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
     int connid = -1;
-    if(host == NULL || *host == 0 || port == 0) {
+    if(port == 5683) {
         /*//const char *response = at_command(modem->at, "AT+CGSN=1");
         char imei[CELLULAR_IMEI_LENGTH+1];
         int ret = modem->ops->imei(modem,imei,sizeof(imei));
@@ -259,8 +259,8 @@ static int me3616_socket_connect(struct cellular *modem, const char *host, uint1
             if(ret==0){
             //if(cellular_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
                 at_set_timeout(modem->at, IOT_CONNECT_TIMEOUT);
-                at_command_simple(modem->at, "AT+M2MCLINEW=180.101.147.115,5683,\"%s\",90", IMEI);
-                DBG_I("socket_connect:connecting to host: 180.101.147.115,port = 5683");
+                at_command_simple(modem->at, "AT+M2MCLINEW=%s,%d,\"%s\",90", host, port, IMEI);
+                DBG_I("socket_connect:connecting to host: %s,port = %d", host, port);
                 for(int i = 0; i < IOT_CONNECT_TIMEOUT; i++) {
                     if(SOCKET_STATUS_CONNECTED == info->status) {
                         return CELLULAR_NB_CONNID;
@@ -303,7 +303,7 @@ static ssize_t me3616_socket_send(struct cellular *modem, int connid, const void
         at_send_hex(modem->at, buffer, amount);
         //at_command_simple(modem->at, "");
         const char *_response = at_command(modem->at, "");
-        DBG_D("at-me3616: at command response> %s",_response);  
+        DBG_D("at-me3616: at command response> %s",_response);
         if (!_response)
             return -2;
         if (strcmp(_response, "")) {
@@ -323,7 +323,7 @@ static ssize_t me3616_socket_send(struct cellular *modem, int connid, const void
     }
     return 0;
 }
-static int clirecv_len = 0; 
+static int clirecv_len = 0;
 static int scanner_clirecv(char *line, size_t len, void *arg)
 {
     (void) arg;
@@ -338,7 +338,7 @@ static int scanner_clirecv(char *line, size_t len, void *arg)
     //         return AT_RESPONSE_HEXDATA_FOLLOWS(len);
     //     }
     // }
-    
+
     static bool reading = false;
     if (strstr(line, "+M2MCLIRECV:")) {
         //DBG_D("scanner_clirecv:received +M2MCLIRECV:");
@@ -362,7 +362,7 @@ static char character_handler_clirecv(char ch, char *line, size_t len, void *arg
     //     at_set_character_handler(priv, NULL);
     //     ch = '\n';
     // }
-    
+
     if(ch == ':') {
         DBG_D("character_handler_clirecv:received :");
         line[len] = '\0';
@@ -617,7 +617,7 @@ static int me3616_resume(struct cellular *modem)
 
     //at_resume(modem->at);
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    
+
     at_command_simple(modem->at, "AT+CFUN=1");
     at_command_simple(modem->at, "AT+CMEE=1");
     //at_command_simple(modem->at, "AT+CSCON=1");

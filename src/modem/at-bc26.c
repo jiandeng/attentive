@@ -293,11 +293,11 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
     struct cellular_bc26 *priv = (struct cellular_bc26 *) modem;
     int connid = -1;
 
-    if(host == NULL || *host == 0 || port == 0) {
+    if(port == 5683) {
         struct socket_info *info = &priv->iot_sock;
         if(info->status != SOCKET_STATUS_CONNECTED) {
             if(bc26_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
-                at_command_simple(modem->at, "AT+QLWSERV=\"180.101.147.115\",5683");
+                at_command_simple(modem->at, "AT+QLWSERV=\"%s\",%d", host, port);
                 at_command_simple(modem->at, "AT+QLWCONF=\"%s\"", IMEI);
                 at_command_simple(modem->at, "AT+QLWADDOBJ=19,0,1,\"0\"");
                 at_command_simple(modem->at, "AT+QLWADDOBJ=19,1,1,\"0\"");

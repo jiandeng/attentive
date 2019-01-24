@@ -118,8 +118,9 @@ static int me3616_attach(struct cellular *modem)
         "AT+CFUN=1",
         "AT+CMEE=1",
         /* "AT+CREG=2", */
-        "AT+CPSMS=1,,,\"01011111\",\"00000101\"",
-        "AT+ZSLR=1",   //系统启动后处于可睡眠状态
+        /* "AT+CPSMS=1,,,\"01011000\",\"00000000\"", */
+        "AT+CPSMS=0",
+        "AT+ZSLR=0",
         "AT*MNBIOTEVENT=1,1",
         //"AT+ESOREADEN=1",
         NULL
@@ -502,8 +503,9 @@ static int me3616_op_reset(struct cellular *modem)
         //at_command_simple(modem->at,"AT*MNBIOTEVENT=1,1");
         at_command_simple(modem->at, "AT+CMEE=1");
         at_command_simple(modem->at,"AT+CEREG=1");
-        at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000101\""); //8S后睡眠
-        at_command_simple(modem->at,"AT+ZSLR=1");   //系统启动后处于可睡眠状态
+        // at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011000\",\"00000000\"");
+        at_command_simple(modem->at, "AT+CPSMS=0");
+        at_command_simple(modem->at,"AT+ZSLR=0");
     }
 
     return 0;
@@ -528,8 +530,9 @@ static int me3616_resume(struct cellular *modem)
     //at_command_simple(modem->at, "AT+NPSMR=1");
     //at_command_simple(modem->at, "AT+CSCON?");
     //at_command_simple(modem->at, "AT+NPSMR?");
-    at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000101\""); //10S后睡眠
-    at_command_simple(modem->at,"AT+ZSLR=1");   //系统启动后处于可睡眠状态
+    // at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011000\",\"00000000\"");
+    at_command_simple(modem->at, "AT+CPSMS=0");
+    at_command_simple(modem->at,"AT+ZSLR=0");
     int wake_count = 0;
     const char* response = at_command(modem->at, "AT+NPING=www.baidu.com");
     if(response || *response == '\0') {

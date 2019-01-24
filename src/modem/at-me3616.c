@@ -44,6 +44,7 @@ struct modem_state {
 };
 
 static const char *const me3616_urc_responses[] = {
+    "+IP:",
     "*MNBIOTEVENT:",
     "+M2MCLI:",
     "+M2MCLIRECV:",
@@ -103,14 +104,10 @@ static void handle_urc(const char *line, size_t len, void *arg)
     (void) len;
     DBG_D("URC> %s\r\n", line);
     char *p_res = NULL;
-    p_res = strstr(line,"+M2MCLI:\0");
+    p_res = strstr(line,"+M2MCLI:");
     if(p_res != NULL)
     {
-        if(strstr(p_res,"observe success\0"))
-        {
-            modem->iot_sock.status = SOCKET_STATUS_CONNECTED;
-        }
-        else if(strstr(p_res,"deregister success\0"))
+        if(strstr(p_res,"deregister success"))
         {
             modem->iot_sock.status = SOCKET_STATUS_UNKNOWN;
         }
@@ -198,7 +195,6 @@ static int me3616_attach(struct cellular *modem)
     DBG_D("me3616_attach: AT command simple\r\n");
     for (const char *const *command=init_strings; *command; command++)
         at_command_simple(modem->at, "%s", *command);
-    at_command(modem->at,"AT+M2MCLIDEL");
 
     return 0;
 }
@@ -227,6 +223,64 @@ static int me3616_shutdown(struct cellular *modem)
     return 0;
 }
 
+
+static int scanner_clidel(const char *line, size_t len, void *arg)
+{
+    (void) arg;
+
+    if(!strncmp(line, "+M2MCLI:deregister success", strlen("+M2MCLI:deregister success"))) {
+        return AT_RESPONSE_FINAL;
+    } else if(!strncmp(line, "OK", strlen("OK"))) {
+        return AT_RESPONSE_INTERMEDIATE;
+    } else if(at_prefix_in_table(line, me3616_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
+static int me3616_socket_close(struct cellular *modem, int connid)
+{
+    struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
+
+    if(connid == CELLULAR_NB_CONNID) {
+        struct socket_info *info = &priv->iot_sock;
+        if(info->status == SOCKET_STATUS_CONNECTED) {
+            info->status = SOCKET_STATUS_UNKNOWN;
+            at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+            at_set_command_scanner(modem->at, scanner_clidel);
+            at_command(modem->at, "AT+M2MCLIDEL");
+        }
+    } else if(connid < NUMBER_SOCKETS) {
+        DBG_E("CLOSE %d",SOCKET_STATUS_CONNECTED);
+        struct socket_info *info = &priv->sockets[connid];
+        if(info->status == SOCKET_STATUS_CONNECTED) {
+            info->status = SOCKET_STATUS_UNKNOWN;
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            at_command_simple(modem->at, "AT+ESOCL=%d", connid);
+        }
+    }
+
+    return 0;
+}
+
+static int scanner_clinew(const char *line, size_t len, void *arg)
+{
+    (void) arg;
+
+    if(!strncmp(line, "+M2MCLI:register failed", strlen("+M2MCLI:register failed"))) {
+        return AT_RESPONSE_FINAL;
+    } else if(!strncmp(line, "+M2MCLI:observe success", strlen("+M2MCLI:observe success"))) {
+        return AT_RESPONSE_FINAL;
+    } else if(!strncmp(line, "OK", strlen("OK"))) {
+        return AT_RESPONSE_INTERMEDIATE;
+    } else if(at_prefix_in_table(line, me3616_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
 static int me3616_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
@@ -249,16 +303,17 @@ static int me3616_socket_connect(struct cellular *modem, const char *host, uint1
             char IMEI[CELLULAR_IMEI_LENGTH+1];
             memset(IMEI,0,sizeof(IMEI));
             int ret = modem->ops->imei(modem,IMEI,sizeof(IMEI));
-            if(ret==0){
+            if(ret == 0) {
             //if(cellular_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
+                at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+                at_set_command_scanner(modem->at, scanner_clidel);
+                at_command(modem->at, "AT+M2MCLIDEL");
                 at_set_timeout(modem->at, IOT_CONNECT_TIMEOUT);
-                at_command_simple(modem->at, "AT+M2MCLINEW=%s,%d,\"%s\",90", host, port, IMEI);
-                DBG_I("socket_connect:connecting to host: %s,port = %d", host, port);
-                for(int i = 0; i < IOT_CONNECT_TIMEOUT; i++) {
-                    if(SOCKET_STATUS_CONNECTED == info->status) {
-                        return CELLULAR_NB_CONNID;
-                    }
-                    vTaskDelay(pdMS_TO_TICKS(1000));
+                at_set_command_scanner(modem->at, scanner_clinew);
+                const char* response = at_command(modem->at, "AT+M2MCLINEW=%s,%d,\"%s\",90", host, port, IMEI);
+                if(strstr(response, "observe success")) {
+                    info->status = SOCKET_STATUS_CONNECTED;
+                    return CELLULAR_NB_CONNID;
                 }
             }
             else
@@ -465,30 +520,6 @@ static ssize_t me3616_socket_recv(struct cellular *modem, int connid, void *buff
 
 static int me3616_socket_waitack(struct cellular *modem, int connid)
 {
-    return 0;
-}
-
-static int me3616_socket_close(struct cellular *modem, int connid)
-{
-    struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
-
-    if(connid == CELLULAR_NB_CONNID) {
-        struct socket_info *info = &priv->iot_sock;
-        if(info->status == SOCKET_STATUS_CONNECTED) {
-            info->status = SOCKET_STATUS_UNKNOWN;
-            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-            at_command_simple(modem->at, "AT+M2MCLIDEL");
-        }
-    } else if(connid < NUMBER_SOCKETS) {
-        DBG_E("CLOSE %d",SOCKET_STATUS_CONNECTED);
-        struct socket_info *info = &priv->sockets[connid];
-        if(info->status == SOCKET_STATUS_CONNECTED) {
-            info->status = SOCKET_STATUS_UNKNOWN;
-            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-            at_command_simple(modem->at, "AT+ESOCL=%d", connid);
-        }
-    }
-
     return 0;
 }
 

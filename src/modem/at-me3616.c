@@ -25,7 +25,7 @@ DBG_SET_LEVEL(DBG_LEVEL_E);
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            7
 #define RESUME_TIMEOUT            60
-#define SOCKET_RECV_TIMEOUT       20
+#define SOCKET_RECV_TIMEOUT       5
 #define IOT_CONNECT_TIMEOUT       30
 
 enum socket_status {
@@ -44,16 +44,9 @@ struct modem_state {
 };
 
 static const char *const me3616_urc_responses[] = {
-    /* "+NPSMR:", */
-    /* "+CSCON:", */
-    /* "+NSONMI:", */
-    /* "+NNMI:", */
-    /* "+NPING:", */
-
-     "*MNBIOTEVENT:",
-     "+M2MCLI:",
-    //"+M2MCLIRECV:",
-     //"+ESONMI=",
+    "*MNBIOTEVENT:",
+    "+M2MCLI:",
+    "+M2MCLIRECV:",
     NULL,
 };
 
@@ -295,7 +288,6 @@ static ssize_t me3616_socket_send(struct cellular *modem, int connid, const void
 {
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
     (void) flags;
-    DBG_D("at-me3616: sending to connid %d",connid);
     if(connid == CELLULAR_NB_CONNID) { // TODO: fixme
         amount = amount > HAL_CFG_CELL_MTU ? HAL_CFG_CELL_MTU : amount;
         at_set_timeout(modem->at, AT_TIMEOUT_LONG);
@@ -303,7 +295,6 @@ static ssize_t me3616_socket_send(struct cellular *modem, int connid, const void
         at_send_hex(modem->at, buffer, amount);
         //at_command_simple(modem->at, "");
         const char *_response = at_command(modem->at, "");
-        DBG_D("at-me3616: at command response> %s",_response);
         if (!_response)
             return -2;
         if (strcmp(_response, "")) {
@@ -329,23 +320,16 @@ static int scanner_clirecv(const char *line, size_t len, void *arg)
     (void) arg;
 
     if (at_prefix_in_table(line, me3616_urc_responses)) {
-        return AT_RESPONSE_URC;
+        if(strncmp(line, "+M2MCLIRECV", strlen("+M2MCLIRECV"))) {
+            return AT_RESPONSE_URC;
+        }
     }
-    //line[len] = 0;//for debug
-    //DBG_D("scanner_clirecv:%s",line);
-    // if (sscanf(line, "%d", &len) == 1) {
-    //     if (len > 0) {
-    //         return AT_RESPONSE_HEXDATA_FOLLOWS(len);
-    //     }
-    // }
 
     static bool reading = false;
-    if (strstr(line, "+M2MCLIRECV:")) {
-        //DBG_D("scanner_clirecv:received +M2MCLIRECV:");
+    if(!strncmp(line, "+M2MCLIRECV", strlen("+M2MCLIRECV"))) {
         reading = true;
         return AT_RESPONSE_HEXDATA_FOLLOWS(0);
     } else if(reading) {
-        DBG_D("scanner_clirecv:received complete\r\n");
         clirecv_len = len;
         return AT_RESPONSE_FINAL;
     }
@@ -356,17 +340,9 @@ static int scanner_clirecv(const char *line, size_t len, void *arg)
 static char character_handler_clirecv(char ch, char *line, size_t len, void *arg) {
     struct at *priv = (struct at *) arg;
     line[len] = 0;
-    //DBG_D("character_handler_clirecv:%s",line);
-    // if(ch == ':') {
-    //     line[len] = '\0';
-    //     at_set_character_handler(priv, NULL);
-    //     ch = '\n';
-    // }
-
     if(ch == ':') {
-        DBG_D("character_handler_clirecv:received :");
         line[len] = '\0';
-        if (strstr(line, "+M2MCLIRECV:")) {
+        if(!strncmp(line, "+M2MCLIRECV", strlen("+M2MCLIRECV"))) {
             at_set_character_handler(priv, NULL);
             ch = '\n';
         }
@@ -412,11 +388,9 @@ static ssize_t me3616_socket_recv(struct cellular *modem, int connid, void *buff
 {
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
     (void) flags;
-    DBG_I("at-me3616:%s",__FUNCTION__);
     if(connid == CELLULAR_NB_CONNID) {
         struct socket_info *info = &priv->iot_sock;
         if(info->status == SOCKET_STATUS_CONNECTED) {
-            DBG_I("at-me3616:CELLULAR_NB receiving");
             /* Perform the read. */
             at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
             at_set_character_handler(modem->at, character_handler_clirecv);
@@ -424,7 +398,7 @@ static ssize_t me3616_socket_recv(struct cellular *modem, int connid, void *buff
             const char *response = at_command(modem->at, "");
             if (response == NULL) {
                 DBG_W(">>>>NO RESPONSE\r\n");
-                return -2;
+                return 0;
             }
             if (*response == '\0') {
                 return 0;
@@ -443,12 +417,6 @@ static ssize_t me3616_socket_recv(struct cellular *modem, int connid, void *buff
             /* Copy payload to result buffer. */
             int read = clirecv_len;
             memcpy((char *)buffer, data, read); // TODO: fixme
-            DBG_I("--------at-me3616:received len = %d-------",read);
-            // for(uint16_t i=0;i<read;i++)
-            // {
-            //     NRF_LOG_RAW_INFO("%02x",data[i]);
-            // }
-            // NRF_LOG_RAW_INFO("\r\n");
             return read;
         }
         else

@@ -20,7 +20,7 @@
 #include "hal_cfg.h"
 
 /* Defines -------------------------------------------------------------------*/
-DBG_SET_LEVEL(DBG_LEVEL_E);
+DBG_SET_LEVEL(DBG_LEVEL_I);
 
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            7
@@ -70,34 +70,7 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
     return AT_RESPONSE_UNKNOWN;
 }
-/*
-static uint32_t hex_to_bytes(uint8_t *bytes, const char * hex, uint32_t len) {
-    if(len == 0) {
-        len = strlen(hex);
-    }
-    if(len % 2) {
-        return 0;
-    }
-    uint8_t *p = bytes;
-    for(int i = 0; i < len; i+=2) {
-        uint8_t low = toupper(hex[i+1]);
-        uint8_t high = toupper(hex[i]);
-        if(low > 0x39) {
-            low -= 0x37;
-        } else {
-            low -= 0x30;
-        }
-        if(high> 0x39) {
-            high-= 0x37;
-        } else {
-            high-= 0x30;
-        }
-        *p = (high<<4) |low;
-        p++;
-    }
-    return len/2;
-}
-*/
+
 static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_me3616 *modem = (struct cellular_me3616*) arg;
@@ -114,48 +87,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
     }
 
 }
-/*static void handle_urc(const char *line, size_t len, void *arg)
-{
-    struct cellular_me3616 *modem = (struct cellular_me3616*) arg;
-    (void) len;
-    int state = 0;
-    int connid = -1;
-    uint8_t *data = NULL;
-    uint32_t data_size = 0;
-    DBG_D("URC> %s\r\n", line);
-    if(!strncmp(me3616_urc_responses[2],line,strlen(me3616_urc_responses[2]))) {
-        DBG_D("%d,%s\r\n",len,line +strlen(me3616_urc_responses[2]));
-        if((len - strlen(me3616_urc_responses[2])) % 2) {
-            DBG_E("Invalid response");
-            return;
-        }
-        data = (uint8_t *)pvPortMalloc((len - strlen(me3616_urc_responses))/2);
-        if(!data) {
-            DBG_E("Malloc error");
-            return;
-        }
-        data_size = hex_to_bytes(data,line + strlen(me3616_urc_responses[2]),len - strlen(me3616_urc_responses[2]));
-        connid = CELLULAR_NB_CONNID;
-   }
-   else if(!strncmp(me3616_urc_responses[3],line,strlen(me3616_urc_responses[3]))) {
 
-
-        if(sscanf(line + strlen(me3616_urc_responses[3]), "%d,%d", &connid, &data_size)) {
-            char *p = strrchr(line + strlen(me3616_urc_responses[3]),',');
-
-            if(p){
-                data = (uint8_t *)pvPortMalloc(data_size);
-                hex_to_bytes(data,p+1,data_size * 2);
-            }
-        }
-   }
-    //extern void hook_me3616(dev_comm_t *obj,int connid,void *, int32_t size); // fix me
-    // if(connid >= 0) {
-    //     hook_me3616(modem->dev_obj, connid ,data, data_size);
-    // }
-
-}
-*/
 static const struct at_callbacks me3616_callbacks = {
     .scan_line = scan_line,
     .handle_urc = handle_urc,
@@ -192,7 +124,6 @@ static int me3616_attach(struct cellular *modem)
         //"AT+ESOREADEN=1",
         NULL
     };
-    DBG_D("me3616_attach: AT command simple\r\n");
     for (const char *const *command=init_strings; *command; command++)
         at_command_simple(modem->at, "%s", *command);
 
@@ -252,7 +183,6 @@ static int me3616_socket_close(struct cellular *modem, int connid)
             at_command(modem->at, "AT+M2MCLIDEL");
         }
     } else if(connid < NUMBER_SOCKETS) {
-        DBG_E("CLOSE %d",SOCKET_STATUS_CONNECTED);
         struct socket_info *info = &priv->sockets[connid];
         if(info->status == SOCKET_STATUS_CONNECTED) {
             info->status = SOCKET_STATUS_UNKNOWN;
@@ -286,25 +216,12 @@ static int me3616_socket_connect(struct cellular *modem, const char *host, uint1
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
     int connid = -1;
     if(port == 5683) {
-        /*//const char *response = at_command(modem->at, "AT+CGSN=1");
-        char imei[CELLULAR_IMEI_LENGTH+1];
-        int ret = modem->ops->imei(modem,imei,sizeof(imei));
-        if(ret)
-        {
-            return connid;
-        }
-        DBG_D("net connecting to host:180.101.147.115,port:5683\r\n");
-        at_command_simple(modem->at,"AT+M2MCLINEW=180.101.147.115,5683,\"%s\",90",imei);
-
-        return CELLULAR_NB_CONNID;
-        */
         struct socket_info *info = &priv->iot_sock;
         if(info->status != SOCKET_STATUS_CONNECTED) {
             char IMEI[CELLULAR_IMEI_LENGTH+1];
             memset(IMEI,0,sizeof(IMEI));
             int ret = modem->ops->imei(modem,IMEI,sizeof(IMEI));
             if(ret == 0) {
-            //if(cellular_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
                 at_set_timeout(modem->at, AT_TIMEOUT_LONG);
                 at_set_command_scanner(modem->at, scanner_clidel);
                 at_command(modem->at, "AT+M2MCLIDEL");
@@ -316,16 +233,10 @@ static int me3616_socket_connect(struct cellular *modem, const char *host, uint1
                     return CELLULAR_NB_CONNID;
                 }
             }
-            else
-            {
-                DBG_E("\r\nsocket_connect:read imei failed of %d!%s\r\n",ret,IMEI);
-            }
         }
-        else{DBG_E("\r\nsocket_connect:net has connected!\r\n");}
         return -1;
     } else {
         /* Create an udp socket. */
-        DBG_D("net connecting to host:%s,port:%d",host,port);
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
         const char *response = at_command(modem->at, "AT+ESOC=1,2,1");
         at_simple_scanf(response, "+ESOC=%d", &connid);
@@ -474,10 +385,6 @@ static ssize_t me3616_socket_recv(struct cellular *modem, int connid, void *buff
             memcpy((char *)buffer, data, read); // TODO: fixme
             return read;
         }
-        else
-        {
-            DBG_I("SOCKET STATUS not connect,%d",info->status );
-        }
     } else if(connid < NUMBER_SOCKETS) {
         struct socket_info *info = &priv->sockets[connid];
         if(info->status == SOCKET_STATUS_CONNECTED) {
@@ -569,7 +476,6 @@ static int me3616_op_cops(struct cellular *modem)
 
 static int me3616_op_reset(struct cellular *modem)
 {
-    DBG_I("AT-3616: Resetting\r\n");
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
 
     // Cleanup
@@ -611,7 +517,6 @@ static int me3616_suspend(struct cellular *modem)
 
 static int me3616_resume(struct cellular *modem)
 {
-    DBG_I("AT-3616: Resuming...\r\n");
     struct cellular_me3616 *priv = (struct cellular_me3616 *) modem;
 
     //at_resume(modem->at);
@@ -626,15 +531,11 @@ static int me3616_resume(struct cellular *modem)
     at_command_simple(modem->at, "AT+CPSMS=1,,,\"01011111\",\"00000101\""); //10S后睡眠
     at_command_simple(modem->at,"AT+ZSLR=1");   //系统启动后处于可睡眠状态
     int wake_count = 0;
-    DBG_I("AT-3616: Ping www.baidu.com\r\n");
     const char* response = at_command(modem->at, "AT+NPING=www.baidu.com");
     if(response || *response == '\0') {
-        DBG_I("AT-3616: Ping rsp %s\r\n",response);
         for(int i = 0; i < RESUME_TIMEOUT; i++) {
-            DBG_I("AT-3616: cycle performing ping\r\n");
             wake_count += !priv->state.power_saving;
             if(priv->state.radio_connected) {
-                DBG_I("AT-3616: priv->state.radio_connected=0\r\n");
                 return 0;
             } else if(wake_count && priv->state.power_saving) {
                 break;
@@ -722,7 +623,6 @@ struct cellular *cellular_alloc(void)
 /*
 struct cellular *cellular_alloc_me3616(dev_comm_t *dev_obj)
 {
-    DBG_I("%s", __FUNCTION__);
     struct cellular_me3616 *modem = &cellular;
 
     memset(modem, 0, sizeof(*modem));

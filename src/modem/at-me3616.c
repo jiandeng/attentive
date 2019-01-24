@@ -205,7 +205,7 @@ static int me3616_attach(struct cellular *modem)
     DBG_D("me3616_attach: AT command simple\r\n");
     for (const char *const *command=init_strings; *command; command++)
         at_command_simple(modem->at, "%s", *command);
-    at_command(modem->at,"AT+M2MCLIDEL",10);
+    at_command(modem->at,"AT+M2MCLIDEL");
 
     return 0;
 }
@@ -324,7 +324,7 @@ static ssize_t me3616_socket_send(struct cellular *modem, int connid, const void
     return 0;
 }
 static int clirecv_len = 0;
-static int scanner_clirecv(char *line, size_t len, void *arg)
+static int scanner_clirecv(const char *line, size_t len, void *arg)
 {
     (void) arg;
 
@@ -553,20 +553,20 @@ static int me3616_op_cops(struct cellular *modem)
     return ops;
 }
 
-static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
-    (void) arg;
+// static char character_handler_nrb(char ch, char *line, size_t len, void *arg) {
+//     (void) arg;
 
-    if(ch > 0x1F && ch < 0x7F) {
+//     if(ch > 0x1F && ch < 0x7F) {
 
-    } else if(ch == '\r' || ch == '\n') {
+//     } else if(ch == '\r' || ch == '\n') {
 
-    } else {
-        ch = ' ';
-        line[len - 1] = ch;
-    }
+//     } else {
+//         ch = ' ';
+//         line[len - 1] = ch;
+//     }
 
-    return ch;
-}
+//     return ch;
+// }
 
 static int me3616_op_reset(struct cellular *modem)
 {

@@ -143,7 +143,7 @@ int at_open(struct at *at)
         .rx_mode = HAL_UART_RX_MODE_BUFFERED,
         .rx_buf_size = 640,
         .rx_timeout_ms = 200,
-        .tx_timeout_ms = 600,
+        .tx_timeout_ms = 1200,
         .tx_pin = HAL_CFG_CELL_TXD,
         .rx_pin = HAL_CFG_CELL_RXD,
     };

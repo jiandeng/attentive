@@ -598,6 +598,7 @@ static const struct cellular_ops me3616_ops = {
     .rssi = cellular_op_rssi,
     .cops = me3616_op_cops,
     .test = cellular_op_test,
+    .gets = cellular_op_gets,
     .command = cellular_op_command,
     .sms = cellular_op_sms,
     .cnum = cellular_op_cnum,

@@ -234,6 +234,22 @@ int cellular_op_onum(struct cellular *modem, char *num)
     return 0;
 }
 
+static int scanner_gets(const char *line, size_t len, void *arg)
+{
+    (void) arg;
+
+    return AT_RESPONSE_FINAL;
+}
+
+const char* cellular_op_gets(struct cellular *modem, int timeout)
+{
+    at_set_timeout(modem->at, timeout);
+    at_set_command_scanner(modem->at, scanner_gets);
+    const char* response = at_command(modem->at, "");
+
+    return response;
+}
+
 //int cellular_op_clock_gettime(struct cellular *modem, struct timespec *ts)
 //{
 //    struct tm tm;

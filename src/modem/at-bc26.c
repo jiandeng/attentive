@@ -20,7 +20,7 @@
 /* Defines -------------------------------------------------------------------*/
 DBG_SET_LEVEL(DBG_LEVEL_I);
 
-#define USE_BUFFERED_RECV
+// #define USE_BUFFERED_RECV
 
 #define AUTOBAUD_ATTEMPTS         10
 #define NUMBER_SOCKETS            5
@@ -47,11 +47,8 @@ struct modem_state {
 static const char *const bc26_urc_responses[] = {
     "+QGACT:",
     "+IP:",
-    "SEND OK",
-#ifdef USE_BUFFERED_RECV
-    "+QLWDATARECV:",
-    "+QIURC: \"recv\"",
-#endif
+    "+CTM2M:",
+    "+CTM2MRECV:",
     NULL,
 };
 
@@ -255,22 +252,23 @@ static enum at_response_type scanner_qiopen(const char *line, size_t len, void *
     return AT_RESPONSE_UNKNOWN;
 }
 
-static enum at_response_type scanner_qlwopen(const char *line, size_t len, void *arg)
+static int scanner_ctm2mreg(const char *line, size_t len, void *arg)
 {
-    (void) len;
     (void) arg;
 
-    /* There are response lines after OK. Keep reading. */
-    if (!strcmp(line, "OK"))
+    int status = -1;
+    if(sscanf(line, "+CTM2M:reg,%d", &status) == 1) {
+        if(status != 0) {
+            return AT_RESPONSE_FINAL;
+        }
+    } else if(sscanf(line, "+CTM2M:obsrv,%d", &status) == 1) {
+        return AT_RESPONSE_FINAL;
+    } else if(!strncmp(line, "OK", strlen("OK"))) {
         return AT_RESPONSE_INTERMEDIATE;
-    /* Wait for the urc response */
-    int state = 0;
-    if (sscanf(line, "+QLWOBSERVE: %d,19,0,0", &state) == 1) {
-        return AT_RESPONSE_FINAL;
+    } else if(at_prefix_in_table(line, bc26_urc_responses)) {
+        return AT_RESPONSE_URC;
     }
-    else if(sscanf(line, "CONNECT FAIL")) {
-        return AT_RESPONSE_FINAL;
-    }
+
     return AT_RESPONSE_UNKNOWN;
 }
 
@@ -288,6 +286,22 @@ static enum at_response_type scanner_close(const char *line, size_t len, void *a
     return AT_RESPONSE_UNKNOWN;
 }
 
+static int scanner_ctm2mdereg(const char *line, size_t len, void *arg)
+{
+    (void) arg;
+
+    int status = -1;
+    if(sscanf(line, "+CTM2M:dereg,%d", &status) == 1) {
+        return AT_RESPONSE_FINAL;
+    } else if(!strncmp(line, "OK", strlen("OK"))) {
+        return AT_RESPONSE_INTERMEDIATE;
+    } else if(at_prefix_in_table(line, bc26_urc_responses)) {
+        return AT_RESPONSE_URC;
+    }
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
 static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
     struct cellular_bc26 *priv = (struct cellular_bc26 *) modem;
@@ -297,20 +311,12 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
         struct socket_info *info = &priv->iot_sock;
         if(info->status != SOCKET_STATUS_CONNECTED) {
             if(bc26_op_imei(modem, (char*)IMEI, sizeof(IMEI)) == 0) {
-                at_command_simple(modem->at, "AT+QLWSERV=\"%s\",%d", host, port);
-                at_command_simple(modem->at, "AT+QLWCONF=\"%s\"", IMEI);
-                at_command_simple(modem->at, "AT+QLWADDOBJ=19,0,1,\"0\"");
-                at_command_simple(modem->at, "AT+QLWADDOBJ=19,1,1,\"0\"");
-                at_command_simple(modem->at, "AT+QLWCFG=\"dataformat\",1,1");
+                at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+                at_command_simple(modem->at, "AT+CTM2MINIT=%s,%d,86400,0,0", host, port);
                 at_set_timeout(modem->at, IOT_CONNECT_TIMEOUT);
-                at_set_command_scanner(modem->at, scanner_qlwopen);
-#ifdef USE_BUFFERED_RECV
-                const char* response = at_command(modem->at, "AT+QLWOPEN=1");
-#else
-                const char* response = at_command(modem->at, "AT+QLWOPEN=0");
-#endif
-                int state = 0;
-                if (sscanf(response, "OK\nCONNECT OK\n+QLWOBSERVE: %d,19,0,0", &state) == 1 && state == 0) {
+                at_set_command_scanner(modem->at, scanner_ctm2mreg);
+                const char* response = at_command(modem->at, "AT+CTM2MREG");
+                if (strstr(response, "+CTM2M:obsrv,0")) {
                     info->status = SOCKET_STATUS_CONNECTED;
                     return CELLULAR_NB_CONNID;
                 }
@@ -373,9 +379,9 @@ static ssize_t bc26_socket_send(struct cellular *modem, int connid, const void *
     if(connid == CELLULAR_NB_CONNID) { // TODO: fixme
         amount = amount > 512 ? 512 : amount;
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        at_send(modem->at, "AT+QLWDATASEND=19,0,0,%d,", amount);
+        at_send(modem->at, "AT+CTM2MSEND=");
         at_send_hex(modem->at, buffer, amount);
-        at_command_simple(modem->at, ",0x0000");
+        at_command(modem->at, "");
         return amount;
     } else if(connid < NUMBER_SOCKETS) {
         struct socket_info *info = &priv->sockets[connid];
@@ -443,38 +449,38 @@ static int scanner_qird(const char *line, size_t len, void *arg)
     return AT_RESPONSE_UNKNOWN;
 }
 #else
-static int scanner_lwrecv(const char *line, size_t len, void *arg)
-{
-    (void) arg;
 
+static int ctm2mrecv_len = 0;
+static int scanner_ctm2mrecv (const char *line, size_t len, void *arg) {
     if (at_prefix_in_table(line, bc26_urc_responses)) {
-        return AT_RESPONSE_URC;
+        if(strncmp(line, "+CTM2MRECV", strlen("+CTM2MRECV"))) {
+            return AT_RESPONSE_URC;
+        }
     }
 
-    static size_t read = 0;
-    if (sscanf(line, "+QLWDATARECV: 19,1,0,%d,", &read) == 1) {
-        if (read > 0) {
-            return AT_RESPONSE_HEXDATA_FOLLOWS(read);
-        }
-    } else if(len == read) {
+    static bool reading = false;
+    if(!strncmp(line, "+CTM2MRECV", strlen("+CTM2MRECV"))) {
+        reading = true;
+        return AT_RESPONSE_HEXDATA_FOLLOWS(0);
+    } else if(reading) {
+        ctm2mrecv_len = len;
         return AT_RESPONSE_FINAL;
     }
 
-    read = 0;
     return AT_RESPONSE_UNKNOWN;
 }
 
-static char character_handler_lwrecv(char ch, char *line, size_t len, void *arg) {
+static char character_handler_ctm2mrecv(char ch, char *line, size_t len, void *arg) {
     struct at *priv = (struct at *) arg;
 
-    if(ch == ',') {
+    line[len] = 0;
+    if(ch == ':') {
         line[len] = '\0';
-        if (sscanf(line, "+QLWDATARECV: 19,1,0,%d,", &len) == 1) {
+        if(!strncmp(line, "+CTM2MRECV", strlen("+CTM2MRECV"))) {
             at_set_character_handler(priv, NULL);
             ch = '\n';
         }
     }
-
     return ch;
 }
 
@@ -532,22 +538,23 @@ static ssize_t bc26_socket_recv(struct cellular *modem, int connid, void *buffer
             }
 #else
             at_set_timeout(modem->at, SOCKET_RECV_TIMEOUT);
-            at_set_character_handler(modem->at, character_handler_lwrecv);
-            at_set_command_scanner(modem->at, scanner_lwrecv);
+            at_set_character_handler(modem->at, character_handler_ctm2mrecv);
+            at_set_command_scanner(modem->at, scanner_ctm2mrecv);
             const char *response = at_command(modem->at, "");
             if (response == NULL) {
                 DBG_W(">>>>NO RESPONSE\r\n");
-                return -2;
+                return 0;
             }
             if (*response == '\0') {
                 return 0;
             }
             /* Find the header line. */
-            int read = 0;
-            if(sscanf(response, "+QLWDATARECV: 19,1,0,%d", &read) != 1) {
+            if(strncmp(response, "+CTM2MRECV:", strlen("+CTM2MRECV:"))) {
                 DBG_I(">>>>BAD RESPONSE\r\n");
                 return -1;
             }
+            /* Copy payload to result buffer. */
+            int read = ctm2mrecv_len;
 #endif
 
             /* Locate the payload. */
@@ -637,11 +644,9 @@ static int bc26_socket_close(struct cellular *modem, int connid)
         struct socket_info *info = &priv->iot_sock;
         if(info->status == SOCKET_STATUS_CONNECTED) {
             info->status = SOCKET_STATUS_UNKNOWN;
-            at_set_command_scanner(modem->at, scanner_close);
+            at_set_command_scanner(modem->at, scanner_ctm2mdereg);
             at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-            at_command(modem->at, "AT+QLWCLOSE");
-            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-            at_command_simple(modem->at, "AT+QLWDELOBJ=19");
+            at_command_simple(modem->at, "AT+CTM2MDEREG");
         }
     } else if(connid < NUMBER_SOCKETS) {
         struct socket_info *info = &priv->sockets[connid];

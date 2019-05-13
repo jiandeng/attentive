@@ -268,7 +268,7 @@ static enum at_response_type scanner_qlwopen(const char *line, size_t len, void 
     if (sscanf(line, "+QLWOBSERVE: %d,19,0,0", &state) == 1) {
         return AT_RESPONSE_FINAL;
     }
-    else if(sscanf(line, "CONNECT FAIL")) {
+    else if(!strncmp(line, "CONNECT FAIL", strlen("CONNECT FAIL"))) {
         return AT_RESPONSE_FINAL;
     }
     return AT_RESPONSE_UNKNOWN;

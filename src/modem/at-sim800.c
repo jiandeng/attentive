@@ -78,6 +78,7 @@ static const char *const sim800_urc_responses[] = {
     "UNDER-VOLTAGE WARNNING",
     "OVER-VOLTAGE POWER DOWN",
     "OVER-VOLTAGE WARNNING",
+    "Operator:",
     NULL
 };
 

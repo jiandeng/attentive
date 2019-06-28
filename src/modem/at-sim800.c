@@ -55,6 +55,7 @@ enum sim800_socket_status {
 
 
 
+static bool scan_finished = false;
 static const char *const sim800_urc_responses[] = {
     "+CIPRXGET: 1,",    /* Incoming socket data notification */
 #ifdef FEA_SIM800_BT
@@ -64,6 +65,8 @@ static const char *const sim800_urc_responses[] = {
     "+BTCONNECTING: ",  /* BT connecting request notification */
     "+BTCONNECT: ",     /* BT connected */
 #endif
+    "+CENG: ",           /* Cellular info */
+    "+CELLIST: ",        /* Cellular info */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */
@@ -124,11 +127,13 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
 static void handle_urc(const char *line, size_t len, void *arg)
 {
+    struct cellular_sim800 *priv = arg;
+    struct cellular* modem = &priv->dev;
+    int id, mcc, mnc, lac, cid, rssi;
+
     DBG_D("U> %s\r\n", line);
 
 #ifdef FEA_SIM800_BT
-    struct cellular_sim800 *priv = arg;
-
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1\r");
     } else if(!strncmp(line, "+BTCONNECTING: ", strlen("+BTCONNECTING: "))) {
@@ -137,8 +142,51 @@ static void handle_urc(const char *line, size_t len, void *arg)
       }
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
-    }
 #endif
+    if(sscanf(line, "+CENG: %d,\"%d,%d,%x,%x,%*d,%d\"", &id, &mcc, &mnc, &lac, &cid, &rssi) == 6) {
+        if(id < sizeof(modem->cells) / sizeof(*modem->cells)) {
+            cell_info_t* cell = &modem->cells[id];
+            modem->number_cells = id + 1;
+            cell->type = 2;
+            cell->mcc = mcc;
+            cell->mnc = mnc;
+            cell->lac = lac;
+            cell->cellid = cid;
+            cell->rxlevel = rssi - 113;
+            DBG_D("Insert cell[%d]: %d, %x, %x, %d",
+                    id, cell->mcc * 1000 + cell->mnc,
+                    cell->lac, cell->cellid, cell->rxlevel);
+        }
+    } else if(sscanf(line, "+CELLIST: %d,%d,%*d,%*d,%x,%x,%d", &mcc, &mnc, &cid, &lac, &rssi) == 5) {
+        scan_finished = true;
+        for(int i = 0; i < sizeof(modem->cells) / sizeof(*modem->cells); i++) {
+            cell_info_t* cell = &modem->cells[i];
+            if(cell->mcc == mcc && cell->mnc == mnc && cell->lac == lac && cell->cellid == cid) {
+                cell->rxlevel = rssi - 113;
+                DBG_D("Update cell[%d]: %d, %x, %x, %d",
+                        i, cell->mcc * 1000 + cell->mnc,
+                        cell->lac, cell->cellid, cell->rxlevel);
+                break;
+            }
+
+            if(i == 0) {
+
+            } else if(!cell->mcc) {
+                cell_info_t* cell = &modem->cells[i];
+                modem->number_cells = i + 1;
+                cell->type = 2;
+                cell->mcc = mcc;
+                cell->mnc = mnc;
+                cell->lac = lac;
+                cell->cellid = cid;
+                cell->rxlevel = rssi - 113;
+                DBG_D("Insert cell[%d]: %d, %x, %x, %d",
+                        i, cell->mcc * 1000 + cell->mnc,
+                        cell->lac, cell->cellid, cell->rxlevel);
+                break;
+            }
+        }
+    }
 }
 
 static const struct at_callbacks sim800_callbacks = {
@@ -148,6 +196,8 @@ static const struct at_callbacks sim800_callbacks = {
 
 static int sim800_attach(struct cellular *modem)
 {
+    modem->number_cells = 0;
+    memset(modem->cells, 0, sizeof(modem->cells));
     at_set_callbacks(modem->at, &sim800_callbacks, (void *) modem);
 
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
@@ -176,6 +226,7 @@ static int sim800_attach(struct cellular *modem)
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
+        "AT+CENG=3,1",                  /* Enable engineering mode */
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };
@@ -754,6 +805,31 @@ static int sim800_socket_waitack(struct cellular *modem, int connid)
     return -1;
 }
 
+static int sim800_scan(struct cellular *modem, int timeout)
+{
+    scan_finished = false;
+    at_command_simple(modem->at, "AT+CELLIST=1,30");
+
+    int t = 0;
+    do {
+        at_command_simple(modem->at, "AT+CELLIST");
+        if(scan_finished) {
+            break;
+        } else if(t < timeout) {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            t += 5;
+        }
+    } while(t < timeout);
+
+    return 0;
+}
+
+static int sim800_query(struct cellular *modem)
+{
+    at_command_simple(modem->at, "AT+CENG?");
+    return 0;
+}
+
 static enum at_response_type scanner_cipclose(const char *line, size_t len, void *arg)
 {
     (void) len;
@@ -826,6 +902,8 @@ static const struct cellular_ops sim800_ops = {
     .sms = cellular_op_sms,
     .cnum = cellular_op_cnum,
     .onum = cellular_op_onum,
+    .scan = sim800_scan,
+    .query = sim800_query,
 //    .clock_gettime = sim800_clock_gettime,
 //    .clock_settime = sim800_clock_settime,
 //    .clock_ntptime = sim800_clock_ntptime,

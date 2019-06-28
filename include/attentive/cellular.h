@@ -45,6 +45,15 @@ enum {
     CREG_SMSONLY_ROAMING = 7,
 };
 
+typedef struct cell_info {
+    uint32_t type : 3;
+    uint32_t mcc : 10;
+    uint32_t mnc : 10;
+    int32_t  rxlevel: 9;
+    uint16_t cellid;
+    uint16_t lac;
+} cell_info_t;
+
 struct cellular {
     const struct cellular_ops *ops;
     struct at *at;
@@ -53,6 +62,8 @@ struct cellular {
     const char *apn;
     int pdp_failures;
     int pdp_threshold;
+    int number_cells;
+    cell_info_t cells[4];
 };
 
 struct cellular_ops {
@@ -94,6 +105,10 @@ struct cellular_ops {
     int (*cnum)(struct cellular *modem, char *buf, size_t len);
     /** Write own phone number. */
     int (*onum)(struct cellular *modem, char *num);
+    /** Scan cellular info. */
+    int (*scan)(struct cellular *modem, int timeout);
+    /** Query cellular info. */
+    int (*query)(struct cellular *modem);
 
 //    /** Read RTC date and time. Compatible with clock_gettime(). */
 //    int (*clock_gettime)(struct cellular *modem, struct timespec *ts);

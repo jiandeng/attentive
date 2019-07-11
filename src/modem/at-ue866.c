@@ -136,7 +136,7 @@ static int ue866_pdp_open(struct cellular *modem, const char *apn)
     /* Skip the configuration if context is already open. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Configure and open internal pdp context. */
-    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", apn);
+    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\",\"0.0.0.0\",0,0", apn);
     at_set_timeout(modem->at, UPSDA_TIMEOUT);
     response = at_command(modem->at, "AT#SGACT=1,1");
     at_simple_scanf(response, "#SGACT: %*d.%*d.%*d.%d", &active);

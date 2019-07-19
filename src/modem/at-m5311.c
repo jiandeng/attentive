@@ -65,6 +65,7 @@ struct cellular_m5311 {
     struct modem_state state;
     struct socket_info sockets[NUMBER_SOCKETS];
     struct socket_info iot_sock;
+    bool is_ip_valid;
 };
 
 static enum at_response_type scan_line(const char *line, size_t len, void *arg)
@@ -103,6 +104,9 @@ static void handle_urc(const char *line, size_t len, void *arg)
         if(cid >= 0 && cid < NUMBER_SOCKETS) {
             modem->sockets[cid].status = SOCKET_STATUS_UNKNOWN;
         }
+    }
+    if(sscanf(line, "+IP: %*d.%*d.%*d.%d", &state) == 1) {
+        modem->is_ip_valid = true;
     }
 
     DBG_D("U> %s\r\n", line);
@@ -202,10 +206,47 @@ static int m5311_detach(struct cellular *modem)
     return 0;
 }
 
+#ifdef __USE_GACT
+static enum at_response_type scanner_egact(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    /* There are response lines after OK. Keep reading. */
+    if (!strcmp(line, "OK"))
+        return AT_RESPONSE_INTERMEDIATE;
+    /* Wait for the urc response */
+    int state = 0;
+    if (sscanf(line, "+EGACT: 1,1,%d", &state) == 1) {
+        return AT_RESPONSE_FINAL;
+    }
+    return AT_RESPONSE_UNKNOWN;
+}
+#endif
+
 static int m5311_pdp_open(struct cellular *modem, const char *apn)
 {
-    at_command_simple(modem->at, "AT+EGACT=1,1,\"%s\"", apn);
-    return 0;
+#ifdef __USE_GACT
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG * 2);
+    at_set_command_scanner(modem->at, scanner_egact);
+    const char *response = at_command(modem->at, "AT+EGACT=1,1,\"%s\"", apn);
+    int state = 0;
+    const char *rsp = strstr(response, "+EGACT: 1,1,");
+    if (sscanf(rsp, "+EGACT: 1,1,%d", &state) == 1 && state == 1) {
+        return 0;
+    }
+#else
+    struct cellular_m5311 *priv = (struct cellular_m5311 *) modem;
+    for(int i = 0; i < 30; i++) {
+        if(priv->is_ip_valid) {
+            return 0;
+        } else {
+            vTaskDelay(1000);
+        }
+    }
+#endif
+
+    return 0; // TODO: fixme
 }
 
 static int m5311_pdp_close(struct cellular *modem)

@@ -59,7 +59,6 @@ static const char *const bc26_init_commands[] = {
     "AT+CMEE=1",
     "AT+QSCLK=0",
     // "AT+CPSMS=1,,,01011000,00000000",
-    "AT+QICFG=\"dataformat\",1,1",
     NULL,
 };
 
@@ -372,6 +371,8 @@ static int bc26_socket_connect(struct cellular *modem, const char *host, uint16_
 
         int retries = 3;
         do {
+            at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+            at_command_simple(modem->at, "AT+QICFG=\"dataformat\",1,1");
             at_set_timeout(modem->at, SOCKET_CONNECT_TIMEOUT);
             at_set_command_scanner(modem->at, scanner_qiopen);
 

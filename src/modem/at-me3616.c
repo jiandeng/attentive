@@ -431,17 +431,6 @@ static int me3616_socket_waitack(struct cellular *modem, int connid)
     return 0;
 }
 
-static int me3616_op_creg(struct cellular *modem)
-{
-    int creg;
-
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    const char *response = at_command(modem->at, "AT+CEREG?");
-    printf("--->%s\n",response);
-    at_simple_scanf(response, "+CEREG: %*d,%d",&creg);
-    return creg;
-}
-
 static int me3616_op_cops(struct cellular *modem)
 {
     int ops = -1;
@@ -596,9 +585,9 @@ static const struct cellular_ops me3616_ops = {
     .imei = me3616_op_imei,
     .iccid = me3616_op_iccid,
     .imsi = cellular_op_imsi,
-    .creg = me3616_op_creg,
+    .creg = cellular_op_cereg,
     .cgatt = cellular_op_cgatt,
-    .rssi = cellular_op_rssi,
+    .rssi = cellular_op_csq,
     .cops = me3616_op_cops,
     .test = cellular_op_test,
     .gets = cellular_op_gets,

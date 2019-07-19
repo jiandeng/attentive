@@ -562,17 +562,6 @@ static int m5311_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
-static int m5311_op_creg(struct cellular *modem)
-{
-    int creg;
-
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    const char *response = at_command(modem->at, "AT+CREG?");
-    at_simple_scanf(response, "+CREG: %*d,%d", &creg);
-
-    return creg;
-}
-
 static int m5311_suspend(struct cellular *modem)
 {
     at_suspend(modem->at);
@@ -625,9 +614,9 @@ static const struct cellular_ops m5311_ops = {
     .imei = m5311_op_imei,
     .iccid = m5311_op_iccid,
     .imsi = cellular_op_imsi,
-    .creg = m5311_op_creg,
+    .creg = cellular_op_cereg,
     .cgatt = cellular_op_cgatt,
-    .rssi = cellular_op_rssi,
+    .rssi = cellular_op_cesq,
     .cops = cellular_op_cops,
     .test = cellular_op_test,
     .command = cellular_op_command,

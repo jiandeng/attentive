@@ -125,6 +125,29 @@ int cellular_op_creg(struct cellular *modem)
     return creg;
 }
 
+int cellular_op_cereg(struct cellular *modem)
+{
+    int creg;
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+CEREG?");
+    at_simple_scanf(response, "+CEREG: %*d,%d", &creg);
+
+    return creg;
+}
+
+int cellular_op_cgreg(struct cellular *modem)
+{
+    int creg;
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+CGREG?");
+    at_simple_scanf(response, "+CGREG: %*d,%d", &creg);
+
+    return creg;
+}
+
+
 int cellular_op_cgatt(struct cellular *modem)
 {
     int cgatt;
@@ -136,7 +159,7 @@ int cellular_op_cgatt(struct cellular *modem)
     return cgatt;
 }
 
-int cellular_op_rssi(struct cellular *modem)
+int cellular_op_csq(struct cellular *modem)
 {
     int rssi, ber;
 
@@ -146,6 +169,25 @@ int cellular_op_rssi(struct cellular *modem)
 
     return rssi | (ber << 16);
 }
+
+int cellular_op_cesq(struct cellular *modem)
+{
+    int rssi, ber;
+
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char *response = at_command(modem->at, "AT+CESQ");
+    at_simple_scanf(response, "+CESQ: %d,%d", &rssi, &ber);
+    if(rssi == 99) {
+        // Not known
+    } else if(rssi >= 60) {
+        rssi = 31;
+    } else if(rssi >= 1) {
+        rssi = (rssi + 4) / 2;
+    }
+
+    return rssi | (ber << 16);
+}
+
 
 int cellular_op_cops(struct cellular *modem)
 {

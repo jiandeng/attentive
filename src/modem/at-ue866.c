@@ -43,6 +43,11 @@ static const char *const ue866_urc_responses[] = {
     NULL
 };
 
+static const char *const init_strings[] = {
+    "AT+CMEE=2",                    /* Enable extended error reporting. */
+    NULL
+};
+
 struct cellular_ue866 {
     struct cellular dev;
     enum socket_status socket_status[UE866_NSOCKETS];
@@ -105,12 +110,9 @@ static int ue866_attach(struct cellular *modem)
     at_command_simple(modem->at, "ATE0");
 
     /* Initialize modem. */
-    static const char *const init_strings[] = {
-        "AT+CMEE=2",                    /* Enable extended error reporting. */
-        NULL
-    };
-    for (const char *const *command=init_strings; *command; command++)
+    for (const char *const *command=init_strings; *command; command++) {
         at_command_simple(modem->at, "%s", *command);
+    }
 
     return 0;
 }
@@ -159,6 +161,34 @@ static int ue866_shutdown(struct cellular *modem)
 
     at_set_timeout(modem->at, PWROFF_TIMEOUT);
     at_command_simple(modem->at, "AT#SHDN");
+
+    return 0;
+}
+
+static int ue866_op_reset(struct cellular *modem)
+{
+    // Reboot
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_command(modem->at, "AT#ENHRST=1,0");
+    vTaskDelay(pdMS_TO_TICKS(8000));
+    for(int i = 0; i < 22; i++) {
+        const char* resp = at_command(modem->at, "ATE0");
+        if(resp && *resp == '\0') {
+            break;
+        }
+    }
+    if(at_command(modem->at, "ATE0") == NULL) {
+        return -2;
+    } else {
+        /* Delay 2 seconds to continue */
+        vTaskDelay(pdMS_TO_TICKS(2000));
+
+        /* Initialize modem. */
+        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        for (const char *const *command=init_strings; *command; command++) {
+            at_command_simple(modem->at, "%s", *command);
+        }
+    }
 
     return 0;
 }
@@ -357,6 +387,7 @@ static int ue866_socket_close(struct cellular *modem, int connid)
 }
 
 static const struct cellular_ops ue866_ops = {
+    .reset = ue866_op_reset,
     .attach = ue866_attach,
     .detach = ue866_detach,
 

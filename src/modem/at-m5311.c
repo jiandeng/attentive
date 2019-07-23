@@ -24,8 +24,8 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 #define NUMBER_SOCKETS            6
 #define RESUME_TIMEOUT            60
 #define SOCKET_RECV_TIMEOUT       20
-#define IOT_CONNECT_TIMEOUT       30
-#define SOCKET_CONNECT_TIMEOUT    60
+#define IOT_CONNECT_TIMEOUT       (128 + 2) // According to the spec
+#define SOCKET_CONNECT_TIMEOUT    (128 + 2)
 
 enum socket_status {
     SOCKET_STATUS_ERROR = -1,

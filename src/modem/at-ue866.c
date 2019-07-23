@@ -104,6 +104,11 @@ static int ue866_attach(struct cellular *modem)
     /* Disable local echo again; make sure it was disabled successfully. */
     at_command_simple(modem->at, "ATE0");
 
+    /* Delay 1 seconds to continue */
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    at_command(modem->at, "AT+CGMM");
+    at_command(modem->at, "AT+CGMR");
+
     /* Initialize modem. */
     static const char *const init_strings[] = {
         "AT+CMEE=2",                    /* Enable extended error reporting. */

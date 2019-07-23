@@ -112,6 +112,8 @@ static int me3616_attach(struct cellular *modem)
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
+    at_command(modem->at, "AT+CGMM");
+    at_command(modem->at, "AT+CGMR");
 
     /* Initialize modem. */
     static const char *const init_strings[] = {

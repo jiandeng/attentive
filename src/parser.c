@@ -204,10 +204,15 @@ static void parser_handle_line(struct at_parser *parser)
 
     /* Determine response type. */
     enum at_response_type type = AT_RESPONSE_UNKNOWN;
-    if (parser->cbs->scan_line)
+    if (parser->cbs->scan_line) {
         type = parser->cbs->scan_line(line, len, parser->priv);
-    if (!type && parser->state != STATE_HEXDATA && parser->state != STATE_RAWDATA)
+    }
+
+    if (parser->state == STATE_HEXDATA || parser->state == STATE_RAWDATA) {
+        parser_include_line(parser);
+    } else if(!type) {
         type = generic_line_scanner(line, len, parser);
+    }
 
     /* Expected URCs and all unexpected lines are sent to URC handler. */
     if (type == AT_RESPONSE_URC || parser->state == STATE_IDLE)

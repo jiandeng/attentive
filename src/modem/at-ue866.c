@@ -22,7 +22,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 
 #define AUTOBAUD_ATTEMPTS         10
 #define WAITACK_TIMEOUT           24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
-#define UPSDA_TIMEOUT             40        // Should be 150 seconds, According to the AT_Command_Manual
+#define SGACT_TIMEOUT             (150 + 3) // According to the AT_Command_Manual
 #define TCP_CONNECT_TIMEOUT       40        // According to the AT_Command_Manual
 #define PWROFF_TIMEOUT            (10 + 3)  // According to the AT_Command_Manual
 #define UE866_NSOCKETS             7        // According to the AT_Command_Manual
@@ -142,7 +142,7 @@ static int ue866_pdp_open(struct cellular *modem, const char *apn)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Configure and open internal pdp context. */
     at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", apn);
-    at_set_timeout(modem->at, UPSDA_TIMEOUT);
+    at_set_timeout(modem->at, SGACT_TIMEOUT);
     response = at_command(modem->at, "AT#SGACT=1,1");
     at_simple_scanf(response, "#SGACT: %*d.%*d.%*d.%d", &active);
 

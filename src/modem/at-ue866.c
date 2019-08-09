@@ -40,6 +40,7 @@ enum socket_error {
 
 static const char *const ue866_urc_responses[] = {
     "SRING: ",        /* Socket data received */
+    "#MONI: ",
     NULL
 };
 

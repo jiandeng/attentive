@@ -57,11 +57,13 @@ enum sim800_socket_status {
 
 static const char *const sim800_urc_responses[] = {
     "+CIPRXGET: 1,",    /* Incoming socket data notification */
+#ifdef FEA_SIM800_BT
     "+BTSPPMAN: ",      /* Incoming BT SPP data notification */
     "+BTPAIRING: ",     /* BT pairing request notification */
     "+BTPAIR: ",        /* BT paired */
     "+BTCONNECTING: ",  /* BT connecting request notification */
     "+BTCONNECT: ",     /* BT connected */
+#endif
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */
@@ -125,9 +127,10 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
 static void handle_urc(const char *line, size_t len, void *arg)
 {
-    struct cellular_sim800 *priv = arg;
-
     DBG_D("U> %s\r\n", line);
+
+#ifdef FEA_SIM800_BT
+    struct cellular_sim800 *priv = arg;
 
     if (!strncmp(line, "+BTPAIRING: \"Druid_Tech\"", strlen("+BTPAIRING: \"Druid_Tech\""))) {
       at_send(priv->dev.at, "AT+BTPAIR=1,1\r");
@@ -138,6 +141,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
     }
+#endif
 }
 
 static const struct at_callbacks sim800_callbacks = {
@@ -448,6 +452,7 @@ static int sim800_socket_connect(struct cellular *modem, const char *host, uint1
     int connid = -1;
 
     if(host == NULL && port == 0) {
+#ifdef FEA_SIM800_BT
         // SPP connection
         connid = CELLULAR_BT_CONNID ;
         if(cellular_sim800_bt_enable(modem) != 0) {
@@ -461,6 +466,10 @@ static int sim800_socket_connect(struct cellular *modem, const char *host, uint1
             }
             vTaskDelay(pdMS_TO_TICKS(1000));
         }
+#else
+        (void) cellular_sim800_bt_enable;
+        return -1;
+#endif
     // TCP connection
     } else {
         for(int i = 0; i < SIM800_NSOCKETS; i++) {
@@ -527,6 +536,7 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
     (void) flags;
     if(connid == CELLULAR_BT_CONNID) {
+#ifdef FEA_SIM800_BT
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
       }
@@ -539,6 +549,9 @@ static ssize_t sim800_socket_send(struct cellular *modem, int connid, const void
       /* Send raw data. */
       at_set_command_scanner(modem->at, scanner_cipsend);
       at_command_raw_simple(modem->at, buffer, amount);
+#else
+      return -1;
+#endif
     } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
         return -1;
@@ -610,6 +623,7 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
     // TODO its dumb and exceptions should be handled in other right way
     // FIXME: It has to be changed. Leave for now
     if(connid == CELLULAR_BT_CONNID) {
+#ifdef FEA_SIM800_BT
       if(priv->spp_status != SIM800_SOCKET_STATUS_CONNECTED) {
         DBG_I(">>>>DISCONNECTED\r\n");
         return -1;
@@ -656,6 +670,11 @@ static ssize_t sim800_socket_recv(struct cellular *modem, int connid, void *buff
           memcpy((char *)buffer + cnt, data, read);
           cnt += read;
       }
+#else
+      (void)scanner_btsppget;
+      (void)character_handler_btsppget;
+      return -1;
+#endif
     }
     else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       if(priv->socket_status[connid] != SIM800_SOCKET_STATUS_CONNECTED) {
@@ -769,9 +788,13 @@ int sim800_socket_close(struct cellular *modem, int connid)
     struct cellular_sim800 *priv = (struct cellular_sim800 *) modem;
 
     if(connid == CELLULAR_BT_CONNID) {
+#ifdef FEA_SIM800_BT
       at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
       at_set_command_scanner(modem->at, scanner_btclose);
       at_command_simple(modem->at, "AT+BTDISCONN=%d", priv->spp_connid);
+#else
+      (void) scanner_btclose;
+#endif
     } else if(connid >= 0 && connid < SIM800_NSOCKETS) {
       at_set_timeout(modem->at, AT_TIMEOUT_LONG);
       at_set_command_scanner(modem->at, scanner_cipclose);
@@ -831,6 +854,7 @@ void cellular_free(struct cellular *modem)
 {
 }
 
+#if FEA_SIM800_BT
 int cellular_sim800_bt_mac(struct cellular *modem, char* buf, int len)
 {
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
@@ -861,5 +885,6 @@ int cellular_sim800_bt_disable(struct cellular *modem)
 
     return 0;
 }
+#endif
 
 /* vim: set ts=4 sw=4 et: */

@@ -76,11 +76,8 @@ static const char *const sim800_urc_responses[] = {
     "+CPIN:",
     "Call Ready",
     "SMS Ready",
-    "NORMAL POWER DOWN",
-    "UNDER-VOLTAGE POWER DOWN",
-    "UNDER-VOLTAGE WARNNING",
-    "OVER-VOLTAGE POWER DOWN",
-    "OVER-VOLTAGE WARNNING",
+    "UNDER-VOLT",
+    "OVER-VOLT",
     "Operator",
     NULL
 };

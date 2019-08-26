@@ -358,7 +358,7 @@ static int m6315_shutdown(struct cellular *modem)
 
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
     at_set_command_scanner(modem->at, scanner_shutdown);
-    at_command_simple(modem->at, "AT+CPOWD=1");
+    at_command_simple(modem->at, "AT+QPOWD=1");
 
     return 0;
 }
@@ -386,7 +386,7 @@ static int m6315_socket_connect(struct cellular *modem, const char *host, uint16
         do {
             at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
             priv->socket_status[connid] = M6315_SOCKET_STATUS_UNKNOWN;
-            at_command_simple(modem->at, "AT+QIOPEN=%d,TCP,\"%s\",%d", connid, host, port);
+            at_command_simple(modem->at, "AT+QIOPEN=%d,\"TCP\",\"%s\",%d", connid, host, port);
             /* Wait for socket status URC. */
             while(i++ < M6315_TCP_CONNECT_TIMEOUT) {
                 if (priv->socket_status[connid] == M6315_SOCKET_STATUS_CONNECTED) {
@@ -457,8 +457,8 @@ static int scanner_qird(const char *line, size_t len, void *arg)
     (void) len;
     (void) arg;
 
-    int read, left; // TODO: fixme
-    if (sscanf(line, "+QIRD: 0,%*d,%d,%d", &read, &left) == 2)
+    int read; // TODO: fixme
+    if (sscanf(line, "+QIRD: %*s,TCP,%d", &read) == 1)
         if (read > 0)
             return AT_RESPONSE_RAWDATA_FOLLOWS(read);
 
@@ -493,9 +493,9 @@ static ssize_t m6315_socket_recv(struct cellular *modem, int connid, void *buffe
               return -2;
           }
           /* Find the header line. */
-          int read, left; // data read from the receive buffer & data left in the receive buffer
+          int read; // data read from the receive buffer & data left in the receive buffer
           // TODO: connid is not checked
-          if(sscanf(response, "+QIRD: 2,%*d,%d,%d", &read, &left) != 2) {
+          if(sscanf(response, "+QIRD: %*s,TCP,%d", &read) != 1) {
               DBG_I(">>>>BAD RESPONSE\r\n");
               return -1;
           }

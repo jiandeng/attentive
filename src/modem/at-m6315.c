@@ -493,7 +493,7 @@ static ssize_t m6315_socket_recv(struct cellular *modem, int connid, void *buffe
               return -2;
           }
           /* Find the header line. */
-          int read; // data read from the receive buffer & data left in the receive buffer
+          int read; // data read from the receive buffer
           // TODO: connid is not checked
           if(sscanf(response, "+QIRD: %*s,TCP,%d", &read) != 1) {
               DBG_I(">>>>BAD RESPONSE\r\n");
@@ -518,11 +518,6 @@ static ssize_t m6315_socket_recv(struct cellular *modem, int connid, void *buffe
           /* Copy payload to result buffer. */
           memcpy((char *)buffer + cnt, data, read);
           cnt += read;
-
-          /* Bail out if we're out of data. */
-          if(left == 0) {
-              break;
-          }
       }
     }
 

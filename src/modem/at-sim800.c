@@ -201,21 +201,6 @@ static int sim800_attach(struct cellular *modem)
         }
     }
 
-    /* Configure IP application. */
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    /* Switch to multiple connections mode; it's less buggy. */
-    if (at_config(modem->at, "CIPMUX", "1", SIM800_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-    /* Receive data manually. */
-    if (at_config(modem->at, "CIPRXGET", "1", SIM800_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-    /* Enable quick send mode. */
-    if (at_config(modem->at, "CIPQSEND", "1", SIM800_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-
     return 0;
 }
 
@@ -372,6 +357,21 @@ static enum at_response_type scanner_cifsr(const char *line, size_t len, void *a
 
 static int sim800_pdp_open(struct cellular *modem, const char *apn)
 {
+    /* Configure IP application. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    /* Switch to multiple connections mode; it's less buggy. */
+    if (at_config(modem->at, "CIPMUX", "1", SIM800_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+    /* Receive data manually. */
+    if (at_config(modem->at, "CIPRXGET", "1", SIM800_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+    /* Enable quick send mode. */
+    if (at_config(modem->at, "CIPQSEND", "1", SIM800_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+
     at_set_timeout(modem->at, AT_TIMEOUT_LONG);
 
     /* Configure and open context for FTP/HTTP applications. */

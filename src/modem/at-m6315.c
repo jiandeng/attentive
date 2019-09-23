@@ -56,7 +56,7 @@ enum m6315_socket_status {
 
 
 static const char *const m6315_urc_responses[] = {
-    "+QIRDI:,",         /* Incoming socket data notification */
+    "+QIRDI:",          /* Incoming socket data notification */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
     "*PSNWID: ",        /* AT+CLTS network name */

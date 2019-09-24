@@ -184,21 +184,6 @@ static int m6315_attach(struct cellular *modem)
         }
     }
 
-    /* Configure IP application. */
-    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-    /* Switch to multiple connections mode; it's less buggy. */
-    if (at_config(modem->at, "QIMUX", "1", M6315_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-    /* Receive data manually. */
-    if (at_config(modem->at, "QINDI", "1", M6315_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-    /* Enable send data echo. */
-    if (at_config(modem->at, "QISDE", "0", M6315_CONFIG_RETRIES) != 0) {
-        return -1;
-    }
-
     return 0;
 }
 
@@ -302,6 +287,21 @@ static int m6315_resume(struct cellular *modem)
 
 static int m6315_pdp_open(struct cellular *modem, const char *apn)
 {
+    /* Configure IP application. */
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    /* Switch to multiple connections mode; it's less buggy. */
+    if (at_config(modem->at, "QIMUX", "1", M6315_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+    /* Receive data manually. */
+    if (at_config(modem->at, "QINDI", "1", M6315_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+    /* Enable send data echo. */
+    if (at_config(modem->at, "QISDE", "0", M6315_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
+
     int active = 0;
     /* Skip the configuration if context is already open. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);

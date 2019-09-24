@@ -434,9 +434,6 @@ bool at_send_hex(struct at *at, const void *data, size_t size)
 int at_config(struct at *at, const char *option, const char *value, int attempts)
 {
     for (int i = 0; i < attempts; i++) {
-        /* Blindly try to set the configuration option. */
-        at_command(at, "AT+%s=%s", option, value);
-
         /* Query the setting status. */
         const char *response = at_command(at, "AT+%s?", option);
         /* Bail out on timeouts. */
@@ -450,6 +447,8 @@ int at_config(struct at *at, const char *option, const char *value, int attempts
         }
         if (!strncmp(response, expected, strlen(expected))) {
             return 0;
+        } else {
+            at_command(at, "AT+%s=%s", option, value);
         }
 
         vTaskDelay(pdMS_TO_TICKS(1000));

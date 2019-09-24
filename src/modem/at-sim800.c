@@ -164,7 +164,7 @@ static int sim800_attach(struct cellular *modem)
     at_command(modem->at, "ATE0");
 
     /* Disable local echo again; make sure it was disabled successfully. */
-    at_command_simple(modem->at, "ATE0");
+    at_command(modem->at, "ATE0");
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
@@ -182,7 +182,7 @@ static int sim800_attach(struct cellular *modem)
         NULL
     };
     for (const char *const *command=init_strings; *command; command++) {
-        at_command_simple(modem->at, "%s", *command);
+        at_command(modem->at, "%s", *command);
     }
 
     /* Enable full functionality */

@@ -108,7 +108,7 @@ static int ue866_attach(struct cellular *modem)
     at_command(modem->at, "ATE0");
 
     /* Disable local echo again; make sure it was disabled successfully. */
-    at_command_simple(modem->at, "ATE0");
+    at_command(modem->at, "ATE0");
 
     /* Delay 1 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -117,7 +117,7 @@ static int ue866_attach(struct cellular *modem)
 
     /* Initialize modem. */
     for (const char *const *command=init_strings; *command; command++) {
-        at_command_simple(modem->at, "%s", *command);
+        at_command(modem->at, "%s", *command);
     }
 
     return 0;

@@ -160,6 +160,7 @@ static int m6315_attach(struct cellular *modem)
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
 //        "AT+IFC=0,0",                   /* Disable hardware flow control. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
+        "AT+QIURC=0",                   /* Disable "Call Ready" URC. */
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };

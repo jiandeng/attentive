@@ -95,20 +95,24 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
         return AT_RESPONSE_URC;
 
     /* Socket status notifications in form of "%d, <status>". */
-    if (line[0] >= '0' && line[0] <= '0'+M6315_NSOCKETS &&
-        !strncmp(line+1, ", ", 2))
+    if (line[0] >= '0' && line[0] <= '0' + M6315_NSOCKETS && line[1] == ',')
     {
         int socket = line[0] - '0';
+        if(line[2] == ' ') {
+            line += 3;
+        } else {
+            line += 2;
+        }
 
-        if (!strcmp(line+3, "CONNECT OK"))
+        if (!strcmp(line, "CONNECT OK"))
         {
             priv->socket_status[socket] = M6315_SOCKET_STATUS_CONNECTED;
             return AT_RESPONSE_URC;
         }
 
-        if (!strcmp(line+3, "CONNECT FAIL") ||
-            !strcmp(line+3, "ALREADY CONNECT") ||
-            !strcmp(line+3, "CLOSED"))
+        if (!strcmp(line, "CONNECT FAIL") ||
+            !strcmp(line, "ALREADY CONNECT") ||
+            !strcmp(line, "CLOSED"))
         {
             priv->socket_status[socket] = M6315_SOCKET_STATUS_ERROR;
             return AT_RESPONSE_URC;
@@ -363,6 +367,32 @@ static int m6315_shutdown(struct cellular *modem)
     return 0;
 }
 
+static enum at_response_type scanner_qiclose(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    int connid;
+    char last;
+    if (sscanf(line, "%d, CLOSE O%c", &connid, &last) == 2 && last == 'K')
+        return AT_RESPONSE_FINAL_OK;
+    return AT_RESPONSE_UNKNOWN;
+}
+
+int m6315_socket_close(struct cellular *modem, int connid)
+{
+    struct cellular_m6315 *priv = (struct cellular_m6315 *) modem;
+
+    if(connid >= 0 && connid < M6315_NSOCKETS) {
+      at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+      at_set_command_scanner(modem->at, scanner_qiclose);
+      at_command_simple(modem->at, "AT+QICLOSE=%d", connid);
+
+      priv->socket_status[connid] = M6315_SOCKET_STATUS_UNKNOWN;
+    }
+    return 0;
+}
+
 static int m6315_socket_connect(struct cellular *modem, const char *host, uint16_t port)
 {
     struct cellular_m6315 *priv = (struct cellular_m6315 *) modem;
@@ -392,12 +422,10 @@ static int m6315_socket_connect(struct cellular *modem, const char *host, uint16
                 if (priv->socket_status[connid] == M6315_SOCKET_STATUS_CONNECTED) {
                     return connid;
                 } else if (priv->socket_status[connid] == M6315_SOCKET_STATUS_ERROR) {
-                    if(i > M6315_TCP_CONNECT_TIMEOUT / 2) {
-                        return -1;
-                    } else {
-                        vTaskDelay(pdMS_TO_TICKS(1000));
-                        break;
-                    }
+                    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+                    at_set_command_scanner(modem->at, scanner_qiclose);
+                    at_command_simple(modem->at, "AT+QICLOSE=%d", connid);
+                    break;
                 } else {
                     vTaskDelay(pdMS_TO_TICKS(1000));
                 }
@@ -543,32 +571,6 @@ static int m6315_socket_waitack(struct cellular *modem, int connid)
       }
     }
     return -1;
-}
-
-static enum at_response_type scanner_qiclose(const char *line, size_t len, void *arg)
-{
-    (void) len;
-    (void) arg;
-
-    int connid;
-    char last;
-    if (sscanf(line, "%d, CLOSE O%c", &connid, &last) == 2 && last == 'K')
-        return AT_RESPONSE_FINAL_OK;
-    return AT_RESPONSE_UNKNOWN;
-}
-
-int m6315_socket_close(struct cellular *modem, int connid)
-{
-    struct cellular_m6315 *priv = (struct cellular_m6315 *) modem;
-
-    if(connid >= 0 && connid < M6315_NSOCKETS) {
-      at_set_timeout(modem->at, AT_TIMEOUT_LONG);
-      at_set_command_scanner(modem->at, scanner_qiclose);
-      at_command_simple(modem->at, "AT+QICLOSE=%d", connid);
-
-      priv->socket_status[connid] = M6315_SOCKET_STATUS_UNKNOWN;
-    }
-    return 0;
 }
 
 static const struct cellular_ops m6315_ops = {

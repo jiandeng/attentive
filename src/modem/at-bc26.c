@@ -22,7 +22,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 
 #define USE_BUFFERED_RECV
 
-#define AUTOBAUD_ATTEMPTS         10
+#define AUTOBAUD_ATTEMPTS         5
 #define NUMBER_SOCKETS            5
 #define RESUME_TIMEOUT            60
 #define SOCKET_RECV_TIMEOUT       20
@@ -161,11 +161,15 @@ static int bc26_attach(struct cellular *modem)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
     /* Perform autobauding. */
+    const char *response = NULL;
     for (int i=0; i<AUTOBAUD_ATTEMPTS; i++) {
-        const char *response = at_command(modem->at, "ATE0");
+        response = at_command(modem->at, "ATE0");
         if (response != NULL && *response == '\0') {
             break;
         }
+    }
+    if(response == NULL || *response != '\0') {
+        return -2;
     }
 
     /* Delay 2 seconds to continue */
@@ -179,7 +183,7 @@ static int bc26_attach(struct cellular *modem)
         at_command_simple(modem->at, "%s", *command);
     }
 
-    const char* response = at_command(modem->at, "AT+CPSMS?");
+    response = at_command(modem->at, "AT+CPSMS?");
     if(strncmp(response, "+CPSMS: 0", strlen("+CPSMS: 0"))) {
         at_command_simple(modem->at, "AT+CPSMS=0");
     }

@@ -37,7 +37,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
  * We work it all around, but it makes the code unnecessarily complex.
  */
 
-#define M6315_AUTOBAUD_ATTEMPTS     10
+#define AUTOBAUD_ATTEMPTS           5
 #define M6315_CONFIG_RETRIES        10
 #define M6315_WAITACK_TIMEOUT       24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define M6315_CGACT_TIMEOUT         (45 + 10)  // According to the AT_Command_Manual
@@ -137,18 +137,16 @@ static int m6315_attach(struct cellular *modem)
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
 
     /* Perform autobauding. */
-    for (int i=0; i<M6315_AUTOBAUD_ATTEMPTS; i++) {
-        const char *response = at_command(modem->at, "AT");
-        if (response != NULL)
-            /* Modem replied. Good. */
+    const char *response = NULL;
+    for (int i=0; i<AUTOBAUD_ATTEMPTS; i++) {
+        response = at_command(modem->at, "ATE0");
+        if (response != NULL && *response == '\0') {
             break;
+        }
     }
-
-    /* Disable local echo. */
-    at_command(modem->at, "ATE0");
-
-    /* Disable local echo again; make sure it was disabled successfully. */
-    at_command(modem->at, "ATE0");
+    if(response == NULL || *response != '\0') {
+        return -2;
+    }
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));

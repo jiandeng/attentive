@@ -45,6 +45,8 @@ static const char *const ue866_urc_responses[] = {
 };
 
 static const char *const init_strings[] = {
+    "AT+CGMM",                      /* Model version. */
+    "AT+CGMR",                      /* Firmware version. */
     "AT+CMEE=2",                    /* Enable extended error reporting. */
     NULL
 };
@@ -108,14 +110,15 @@ static int ue866_attach(struct cellular *modem)
         return -2;
     }
 
-    /* Delay 1 seconds to continue */
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    at_command(modem->at, "AT+CGMM");
-    at_command(modem->at, "AT+CGMR");
+    /* Delay 2 seconds to continue */
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
     /* Initialize modem. */
     for (const char *const *command=init_strings; *command; command++) {
-        at_command(modem->at, "%s", *command);
+        response = at_command(modem->at, "%s", *command);
+        if(response == NULL) {
+            return -2;
+        }
     }
 
     return 0;

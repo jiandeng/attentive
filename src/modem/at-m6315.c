@@ -38,7 +38,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
  */
 
 #define AUTOBAUD_ATTEMPTS           5
-#define M6315_CONFIG_RETRIES        10
+#define M6315_CONFIG_RETRIES        5
 #define M6315_WAITACK_TIMEOUT       24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define M6315_CGACT_TIMEOUT         (45 + 10)  // According to the AT_Command_Manual
 #define M6315_TCP_CONNECT_TIMEOUT   (75 + 10)  // According to the AT_Command_Manual
@@ -150,20 +150,23 @@ static int m6315_attach(struct cellular *modem)
 
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
-    at_command(modem->at, "AT+CGMM");
-    at_command(modem->at, "AT+CGMR");
 
     /* Initialize modem. */
     static const char *const init_strings[] = {
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */
 //        "AT+IFC=0,0",                   /* Disable hardware flow control. */
+        "AT+CGMM",                      /* Model version. */
+        "AT+CGMR",                      /* Firmware version. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+QIURC=0",                   /* Disable "Call Ready" URC. */
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };
     for (const char *const *command=init_strings; *command; command++) {
-        at_command(modem->at, "%s", *command);
+        response = at_command(modem->at, "%s", *command);
+        if(response == NULL) {
+            return -2;
+        }
     }
 
     /* Enable full functionality */

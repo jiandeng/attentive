@@ -492,7 +492,10 @@ static ssize_t m6315_socket_recv(struct cellular *modem, int connid, void *buffe
           if (response == NULL) {
               DBG_W(">>>>NO RESPONSE\r\n");
               return -2;
+          } else if(*response == '\0') {
+              return 0;
           }
+
           /* Find the header line. */
           int read; // data read from the receive buffer
           // TODO: connid is not checked

@@ -294,6 +294,10 @@ static int m6315_pdp_open(struct cellular *modem, const char *apn)
     if (at_config(modem->at, "QIMUX", "1", M6315_CONFIG_RETRIES) != 0) {
         return -1;
     }
+    /* Use hostname only. */
+    if (at_config(modem->at, "QIDNSIP", "1", M6315_CONFIG_RETRIES) != 0) {
+        return -1;
+    }
     /* Receive data manually. */
     if (at_config(modem->at, "QINDI", "1", M6315_CONFIG_RETRIES) != 0) {
         return -1;

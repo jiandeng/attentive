@@ -157,7 +157,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
                     id, cell->mcc * 1000 + cell->mnc,
                     cell->lac, cell->cellid, cell->rxlevel);
         }
-    } else if(sscanf(line, "+CELLIST: %d,%d,%*d,%*d,%x,%x,%d", &mcc, &mnc, &cid, &lac, &rssi) == 5) {
+    } else if(sscanf(line, "+CELLIST: %d,%d,%*d,%d,%x,%x,%*d", &mcc, &mnc, &rssi, &cid, &lac) == 5) {
         scan_finished = true;
         for(int i = 0; i < sizeof(modem->cells) / sizeof(*modem->cells); i++) {
             cell_info_t* cell = &modem->cells[i];

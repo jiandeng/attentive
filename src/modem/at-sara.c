@@ -126,7 +126,6 @@ static int sara_attach(struct cellular *modem)
     static const char *const init_strings[] = {
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         //"AT+CSGT=1,\"Ready\"",        /* Enable greeting message. */
-        "AT+IPR=115200",                /* Set fixed baudrate. */
         NULL
     };
     for (const char *const *command=init_strings; *command; command++)

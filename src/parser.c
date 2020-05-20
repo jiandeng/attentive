@@ -98,6 +98,9 @@ void at_parser_reset(struct at_parser *parser)
     parser->buf_current = 0;
     parser->data_left = 0;
     parser->character_handler = NULL;
+
+    void at_set_command_scanner(void *at, at_line_scanner_t scanner); // TODO: fixme
+    at_set_command_scanner(parser->priv, NULL);
 }
 
 void at_parser_set_character_handler(struct at_parser *parser, at_character_handler_t handler)

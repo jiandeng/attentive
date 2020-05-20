@@ -261,11 +261,6 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
         return NULL;
     }
 
-    /* Delay between commands */
-    if(priv->delay) {
-        vTaskDelay(priv->delay);
-    }
-
     /* Prepare parser. */
     at_parser_await_response(priv->at.parser);
 
@@ -300,6 +295,11 @@ static const char *_at_command(struct at_freertos *priv, const void *data, size_
         at_parser_reset(priv->at.parser);
         result = NULL;
     } else {
+        /* Delay between commands */
+        if(priv->delay) {
+            vTaskDelay(priv->delay);
+        }
+
         /* Response arrived. */
         result = priv->response;
     }

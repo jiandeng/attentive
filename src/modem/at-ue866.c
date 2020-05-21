@@ -277,6 +277,21 @@ static ssize_t ue866_socket_send(struct cellular *modem, int connid, const void 
     return amount;
 }
 
+static int scanner_si(const char *line, size_t len, void *arg)
+{
+    (void) len;
+    (void) arg;
+
+    int connid;
+    if (sscanf(line, "SRING: %d", &connid) == 1) {
+        return AT_RESPONSE_FINAL_OK;
+    } else if (!strncmp(line, "NO CARRIER", strlen("NO CARRIER"))) {
+        return AT_RESPONSE_FINAL_OK;
+    }
+
+    return AT_RESPONSE_UNKNOWN;
+}
+
 static int scanner_srecv(const char *line, size_t len, void *arg)
 {
     (void) len;
@@ -310,18 +325,21 @@ static ssize_t ue866_socket_recv(struct cellular *modem, int connid, void *buffe
         chunk = chunk > 480 ? 480 : chunk;
 
         /* Perform the read. */
-        int read = -1;
+        int read = 0;
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        vTaskDelay(30);
+        at_set_command_scanner(modem->at, scanner_si);
         const char *response = at_command(modem->at, "AT#SI=%d", connid);
-        sscanf(response, "#SI: %*d,%*d,%*d,%d,%*d", &read);
-        if(read > 0) {
-            at_set_command_scanner(modem->at, scanner_srecv);
-            response = at_command(modem->at, "AT#SRECV=%d,%d", connid, chunk);
-        } else if(read == 0) {
-            response = "#SRECV: 1,0";
-        } else {
-            response = NULL;
+        if(response) {
+            response = strstr(response, "#SI: ");
+            if(response) {
+                sscanf(response, "#SI: %*d,%*d,%*d,%d,%*d", &read);
+            }
+            if(read > 0) {
+                at_set_command_scanner(modem->at, scanner_srecv);
+                response = at_command(modem->at, "AT#SRECV=%d,%d", connid, chunk);
+            } else {
+                break;
+            }
         }
         if (response == NULL) {
             DBG_W(">>>>NO RESPONSE\r\n");
@@ -363,18 +381,21 @@ static int ue866_socket_waitack(struct cellular *modem, int connid)
 
     if(priv->socket_status[connid] == SOCKET_STATUS_CONNECTED) {
         at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-        for (int i=0; i<WAITACK_TIMEOUT*2; i++) {
-            /* Read number of bytes waiting. */
-            int nack;
+        for(int i = 0; i < WAITACK_TIMEOUT * 8; i++) {
+            at_set_command_scanner(modem->at, scanner_si);
             const char *response = at_command(modem->at, "AT#SI=%d", connid);
-            at_simple_scanf(response, "#SI: %*d,%*d,%*d,%d", &nack);
+            if(response && !*response) {
+                vTaskDelay(pdMS_TO_TICKS(95));
+                continue;
+            }
 
+            int nack = -1;
+            at_simple_scanf(response, "#SI: %*d,%*d,%*d,%d", &nack);
             /* Return if all bytes were acknowledged. */
             if (nack == 0) {
                 return 0;
             }
-
-            vTaskDelay(pdMS_TO_TICKS(500));
+            vTaskDelay(pdMS_TO_TICKS(95));
         }
     }
     return -1;

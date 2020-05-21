@@ -298,10 +298,13 @@ static int scanner_srecv(const char *line, size_t len, void *arg)
     (void) arg;
 
     int read;
-    if (sscanf(line, "#SRECV: %*d,%d", &read) == 1)
+    if (sscanf(line, "#SRECV: %*d,%d", &read) == 1) {
         if (read > 0) {
             return AT_RESPONSE_RAWDATA_FOLLOWS(read);
         }
+    } else if (!strncmp(line, "NO CARRIER", strlen("NO CARRIER"))) {
+        return AT_RESPONSE_FINAL_OK;
+    }
 
     return AT_RESPONSE_UNKNOWN;
 }
@@ -349,6 +352,11 @@ static ssize_t ue866_socket_recv(struct cellular *modem, int connid, void *buffe
         // TODO:
         // 1. connid is not checked
         // 2. there is possible a bug here.
+        if(!*response) { // Retry
+            at_set_command_scanner(modem->at, scanner_srecv);
+            response = at_command(modem->at, "AT#SRECV=%d,%d", connid, chunk);
+        }
+
         if(sscanf(response, "#SRECV: %*d,%d", &read) != 1) {
             DBG_D(">>>>BAD RESPONSE\r\n");
             return -1;

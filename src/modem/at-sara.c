@@ -125,6 +125,7 @@ static int sara_attach(struct cellular *modem)
     /* Initialize modem. */
     static const char *const init_strings[] = {
         "AT+CMEE=2",                    /* Enable extended error reporting. */
+        "AT+UMWI=0",                    /* Disable Message Waiting Indication. */
         //"AT+CSGT=1,\"Ready\"",        /* Enable greeting message. */
         NULL
     };

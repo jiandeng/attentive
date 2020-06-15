@@ -359,6 +359,31 @@ static int sara_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
+static int sara_query(struct cellular *modem)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    const char*resp = at_command(modem->at, "AT+CGED=3");
+
+    if(resp) {
+        char type;
+        int mcc, mnc, lac, cid;
+        if(sscanf(resp, "+CGED: RAT:\"%c", &type) == 1) {
+            resp = strstr(resp, "MCC:");
+            if(sscanf(resp, "MCC:%d, MNC:%d, LAC:%x, C%*c:%x", &mcc, &mnc, &lac, &cid) == 4) {
+                modem->number_cells = 1;
+                modem->cells->type = (type == 'U' ? 3 : 2);
+                modem->cells->mcc = mcc;
+                modem->cells->mnc = mnc;
+                modem->cells->lac = lac;
+                modem->cells->cellid = cid;
+                modem->cells->rxlevel = 99;
+            }
+        }
+    }
+
+    return 0;
+}
+
 static const struct cellular_ops sara_ops = {
     .attach = sara_attach,
     .detach = sara_detach,
@@ -379,6 +404,7 @@ static const struct cellular_ops sara_ops = {
     .sms = cellular_op_sms,
     .cnum = cellular_op_cnum,
     .onum = cellular_op_onum,
+    .query = sara_query,
     .socket_connect = sara_socket_connect,
     .socket_send = sara_socket_send,
     .socket_recv = sara_socket_recv,

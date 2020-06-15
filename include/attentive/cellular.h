@@ -50,8 +50,9 @@ typedef struct cell_info {
     uint32_t mcc : 10;
     uint32_t mnc : 10;
     int32_t  rxlevel: 9;
-    uint16_t cellid;
+    uint32_t cellid;
     uint16_t lac;
+    uint16_t arfcn;
 } cell_info_t;
 
 struct cellular {

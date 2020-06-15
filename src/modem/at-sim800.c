@@ -129,7 +129,7 @@ static void handle_urc(const char *line, size_t len, void *arg)
 {
     struct cellular_sim800 *priv = arg;
     struct cellular* modem = &priv->dev;
-    int id, mcc, mnc, lac, cid, rssi;
+    int id, mcc, mnc, arfcn, lac, cid, rssi;
 
     DBG_D("U> %s\r\n", line);
 
@@ -143,29 +143,34 @@ static void handle_urc(const char *line, size_t len, void *arg)
     } else if(sscanf(line, "+BTCONNECT: %d,\"Druid_Tech\",%*s,\"SPP\"", &priv->spp_connid) == 1) {
       priv->spp_status = SIM800_SOCKET_STATUS_CONNECTED;
 #endif
-    if(sscanf(line, "+CENG: %d,\"%d,%d,%x,%x,%*d,%d\"", &id, &mcc, &mnc, &lac, &cid, &rssi) == 6) {
-        if(id < sizeof(modem->cells) / sizeof(*modem->cells)) {
-            cell_info_t* cell = &modem->cells[id];
-            modem->number_cells = id + 1;
-            cell->type = 2;
-            cell->mcc = mcc;
-            cell->mnc = mnc;
-            cell->lac = lac;
-            cell->cellid = cid;
-            cell->rxlevel = rssi - 113;
-            DBG_D("Insert cell[%d]: %d, %x, %x, %d",
-                    id, cell->mcc * 1000 + cell->mnc,
-                    cell->lac, cell->cellid, cell->rxlevel);
+    if(sscanf(line, "+CENG: %d", &id) == 1) {
+        if((!id && sscanf(line, "+CENG: %*d,\"%d,%d,%*d,%d,%d,%*d,%x,%*d,%*d,%x\"", &arfcn, &rssi, &mcc, &mnc, &cid, &lac) == 6)
+            || (id && sscanf(line, "+CENG: %*d,\"%d,%d,%*d,%x,%d,%d,%x\"", &arfcn, &rssi, &cid, &mcc, &mnc, &lac) == 6)) {
+            if(id < sizeof(modem->cells) / sizeof(*modem->cells)) {
+                cell_info_t* cell = &modem->cells[id];
+                modem->number_cells = id + 1;
+                cell->type = 2;
+                cell->mcc = mcc;
+                cell->mnc = mnc;
+                cell->lac = lac;
+                cell->cellid = cid;
+                cell->arfcn = arfcn;
+                cell->rxlevel = rssi - 113;
+                DBG_D("Insert cell[%d]: %d, %x, %x, %d, %d",
+                        id, cell->mcc * 1000 + cell->mnc,
+                        cell->lac, cell->cellid, cell->rxlevel, cell->arfcn);
+            }
         }
-    } else if(sscanf(line, "+CELLIST: %d,%d,%*d,%d,%x,%x,%*d", &mcc, &mnc, &rssi, &cid, &lac) == 5) {
+    } else if(sscanf(line, "+CELLIST: %d,%d,%d,%d,%x,%x,%*d", &mcc, &mnc, &arfcn, &rssi, &cid, &lac) == 6) {
         scan_finished = true;
         for(int i = 0; i < sizeof(modem->cells) / sizeof(*modem->cells); i++) {
             cell_info_t* cell = &modem->cells[i];
             if(cell->mcc == mcc && cell->mnc == mnc && cell->lac == lac && cell->cellid == cid) {
+                cell->arfcn = arfcn;
                 cell->rxlevel = rssi - 113;
-                DBG_D("Update cell[%d]: %d, %x, %x, %d",
+                DBG_D("Update cell[%d]: %d, %x, %x, %d, %d",
                         i, cell->mcc * 1000 + cell->mnc,
-                        cell->lac, cell->cellid, cell->rxlevel);
+                        cell->lac, cell->cellid, cell->rxlevel, cell->arfcn);
                 break;
             }
 
@@ -179,10 +184,11 @@ static void handle_urc(const char *line, size_t len, void *arg)
                 cell->mnc = mnc;
                 cell->lac = lac;
                 cell->cellid = cid;
+                cell->arfcn = arfcn;
                 cell->rxlevel = rssi - 113;
-                DBG_D("Insert cell[%d]: %d, %x, %x, %d",
+                DBG_D("Insert cell[%d]: %d, %x, %x, %d, %d",
                         i, cell->mcc * 1000 + cell->mnc,
-                        cell->lac, cell->cellid, cell->rxlevel);
+                        cell->lac, cell->cellid, cell->rxlevel, cell->arfcn);
                 break;
             }
         }
@@ -226,7 +232,7 @@ static int sim800_attach(struct cellular *modem)
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+CLTS=0",                    /* Don't sync RTC with network time, it's broken. */
         "AT+CIURC=0",                   /* Disable "Call Ready" URC. */
-        "AT+CENG=3,1",                  /* Enable engineering mode */
+        "AT+CENG=1,1",                  /* Enable engineering mode */
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };

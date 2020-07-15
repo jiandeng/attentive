@@ -366,16 +366,17 @@ static int sara_query(struct cellular *modem)
 
     if(resp) {
         char type;
-        int mcc, mnc, lac, cid;
+        int mcc, mnc, lac, cid, arfcn;
         if(sscanf(resp, "+CGED: RAT:\"%c", &type) == 1) {
             resp = strstr(resp, "MCC:");
-            if(sscanf(resp, "MCC:%d, MNC:%d, LAC:%x, C%*c:%x", &mcc, &mnc, &lac, &cid) == 4) {
+            if(sscanf(resp, "MCC:%d, MNC:%d, LAC:%x, C%*c:%x, %*[^,], %*[^:]:%d", &mcc, &mnc, &lac, &cid,&arfcn) == 5) {
                 modem->number_cells = 1;
                 modem->cells->type = (type == 'U' ? 3 : 2);
                 modem->cells->mcc = mcc;
                 modem->cells->mnc = mnc;
                 modem->cells->lac = lac;
                 modem->cells->cellid = cid;
+                modem->cells->arfcn = arfcn;
                 modem->cells->rxlevel = 99;
             }
         }

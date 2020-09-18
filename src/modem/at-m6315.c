@@ -56,6 +56,7 @@ enum m6315_socket_status {
 
 
 static const char *const m6315_urc_responses[] = {
+    "+QENG: ",          /* Cellular info */
     "+QIRDI:",          /* Incoming socket data notification */
     "+PDP: DEACT",      /* PDP disconnected */
     "+SAPBR 1: DEACT",  /* PDP disconnected (for SAPBR apps) */
@@ -120,9 +121,57 @@ static enum at_response_type scan_line(const char *line, size_t len, void *arg)
 
 static void handle_urc(const char *line, size_t len, void *arg)
 {
-    // struct cellular_m6315 *priv = arg;
+    struct cellular_m6315 *priv = arg;
+    struct cellular* modem = &priv->dev;
+    int id, mcc, mnc, arfcn, lac, cid, rssi;
 
     DBG_D("U> %s\r\n", line);
+
+    if(sscanf(line, "+QENG: %d", &id) == 1) {
+        if(id == 0) {
+            if(sscanf(line, "+QENG: 0,%d,%d,%x,%x,%d,%*d,%d,", &mcc, &mnc, &lac, &cid, &arfcn, &rssi) == 6) {
+                cell_info_t* cell = &modem->cells[id];
+                modem->number_cells = id + 1;
+                cell->type = 2;
+                cell->mcc = mcc;
+                cell->mnc = mnc;
+                cell->lac = lac;
+                cell->cellid = cid;
+                cell->arfcn = arfcn;
+                cell->rxlevel = rssi;
+                DBG_D("Insert cell[%d]: %d, %x, %x, %d, %d",
+                        id, cell->mcc * 1000 + cell->mnc,
+                        cell->lac, cell->cellid, cell->rxlevel, cell->arfcn);
+            }
+        } else if(id == 1) {
+            char* p = strchr(line, ',');
+            while(p) {
+                p++;
+                if(sscanf(p, "%d,%d,%d,%*d,%*d,%*d,%d,%d,%x,%x", &id, &arfcn, &rssi, &mcc, &mnc, &lac, &cid) == 7) {
+                    if(id < sizeof(modem->cells) / sizeof(*modem->cells)) {
+                        cell_info_t* cell = &modem->cells[id];
+                        modem->number_cells = id + 1;
+                        cell->type = 2;
+                        cell->mcc = mcc;
+                        cell->mnc = mnc;
+                        cell->lac = lac;
+                        cell->cellid = cid;
+                        cell->arfcn = arfcn;
+                        cell->rxlevel = rssi;
+                        DBG_D("Insert cell[%d]: %d, %x, %x, %d, %d",
+                                id, cell->mcc * 1000 + cell->mnc,
+                                cell->lac, cell->cellid, cell->rxlevel, cell->arfcn);
+                    }
+                }
+                for(int i = 0; i < 10; i++) {
+                    p = strchr(p, ',');
+                    if(!p) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 static const struct at_callbacks m6315_callbacks = {
@@ -159,6 +208,7 @@ static int m6315_attach(struct cellular *modem)
         "AT+CGMR",                      /* Firmware version. */
         "AT+CMEE=2",                    /* Enable extended error reporting. */
         "AT+QIURC=0",                   /* Disable "Call Ready" URC. */
+        "AT+QENG=1,1",                  /* Enable engineering mode */
 //        "AT&W0",                        /* Save configuration. */
         NULL
     };
@@ -579,6 +629,12 @@ int m6315_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
+static int m6315_query(struct cellular *modem)
+{
+    at_command_simple(modem->at, "AT+QENG?");
+    return 0;
+}
+
 static const struct cellular_ops m6315_ops = {
     .attach = m6315_attach,
     .detach = m6315_detach,
@@ -602,6 +658,7 @@ static const struct cellular_ops m6315_ops = {
     .sms = cellular_op_sms,
     .cnum = cellular_op_cnum,
     .onum = cellular_op_onum,
+    .query = m6315_query,
 //    .clock_gettime = m6315_clock_gettime,
 //    .clock_settime = m6315_clock_settime,
 //    .clock_ntptime = m6315_clock_ntptime,

@@ -40,8 +40,8 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 #define AUTOBAUD_ATTEMPTS           5
 #define M6315_CONFIG_RETRIES        5
 #define M6315_WAITACK_TIMEOUT       24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
-#define M6315_CGACT_TIMEOUT         (45 + 10)  // According to the AT_Command_Manual
-#define M6315_TCP_CONNECT_TIMEOUT   (75 + 10)  // According to the AT_Command_Manual
+#define M6315_CGACT_TIMEOUT         (150 + 10)// According to the AT_Command_Manual
+#define M6315_TCP_CONNECT_TIMEOUT   (75 + 10) // According to the AT_Command_Manual
 #define M6315_TCP_CONNECT_RETRIES   3         // According to the AT_Command_Manual
 #define M6315_QIDEACT_TIMEOUT       (40 + 10) // According to the AT_command_Manual
 #define M6315_NSOCKETS              8

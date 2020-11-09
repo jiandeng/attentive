@@ -629,6 +629,25 @@ int m6315_socket_close(struct cellular *modem, int connid)
     return 0;
 }
 
+int m6315_op_iccid(struct cellular *modem, char *buf, size_t len)
+{
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    const char *response = at_command(modem->at, "AT+CCID");
+    if(response == NULL) {
+        return -2;
+    }
+
+    if(len > CELLULAR_ICCID_LENGTH && sscanf(response, "+CCID: \"%20s\"", buf) == 1) {
+
+    } else if(len > CELLULAR_ICCID_LENGTH && strlen(response) == CELLULAR_ICCID_LENGTH) {
+        strncpy(buf, response, len);
+    } else {
+        return -1;
+    }
+
+    return 0;
+}
+
 static int m6315_query(struct cellular *modem)
 {
     at_command_simple(modem->at, "AT+QENG?");
@@ -647,7 +666,7 @@ static const struct cellular_ops m6315_ops = {
     .shutdown = m6315_shutdown,
 
     .imei = cellular_op_imei,
-    .iccid = cellular_op_iccid,
+    .iccid = m6315_op_iccid,
     .imsi = cellular_op_imsi,
     .creg = cellular_op_creg,
     .cgatt = cellular_op_cgatt,

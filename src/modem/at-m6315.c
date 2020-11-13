@@ -200,6 +200,24 @@ static int m6315_attach(struct cellular *modem)
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+    /* Enable cellualr patch */
+    bool need_write = false;
+    int temp = 0;
+    response = at_command(modem->at, "AT+QCFG=\"NW/Optmz\"");
+    if(response && sscanf(response, "+QCFG: \"NW/Optmz\",%d", &temp) == 1 && temp != 108) {
+        need_write = true;
+        at_command_simple(modem->at, "AT+QCFG=\"NW/Optmz\",108");
+    }
+    response = at_command(modem->at, "AT+QCFG=\"NW/OptmzPDP\"");
+    if(response && sscanf(response, "+QCFG: \"NW/OptmzPDP\",%d", &temp) == 1 && temp != 1) {
+        need_write = true;
+        at_command_simple(modem->at, "AT+QCFG=\"NW/OptmzPDP\",1");
+    }
+    if(need_write) {
+        at_command_simple(modem->at, "AT&W");
+    }
+
+
     /* Initialize modem. */
     static const char *const init_strings[] = {
 //        "AT+IPR=0",                     /* Enable autobauding if not already enabled. */

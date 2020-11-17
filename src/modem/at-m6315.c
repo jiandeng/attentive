@@ -200,6 +200,7 @@ static int m6315_attach(struct cellular *modem)
     /* Delay 2 seconds to continue */
     vTaskDelay(pdMS_TO_TICKS(2000));
 
+#if 0
     /* Enable cellualr patch */
     bool need_write = false;
     int temp = 0;
@@ -216,6 +217,7 @@ static int m6315_attach(struct cellular *modem)
     if(need_write) {
         at_command_simple(modem->at, "AT&W");
     }
+#endif
 
 
     /* Initialize modem. */

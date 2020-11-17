@@ -390,9 +390,7 @@ static int m6315_pdp_open(struct cellular *modem, const char *apn)
     /* Skip the configuration if context is already open. */
     at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
     /* Configure and open internal pdp context. */
-    at_command_simple(modem->at, "AT+CGDCONT=1,\"IP\",\"%s\"", apn);
-    at_set_timeout(modem->at, M6315_CGACT_TIMEOUT);
-    at_command_simple(modem->at, "AT+CGACT=1,1");
+    at_command_simple(modem->at, "AT+QICSGP=1,\"%s\"", apn);
 
     return 0;
 }

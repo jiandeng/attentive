@@ -111,7 +111,7 @@ struct at *at_alloc_freertos(void)
     xTaskCreate(at_reader_thread, "ATReadTask", configMINIMAL_STACK_SIZE * 2, priv, 4, &priv->xTask);
 #else
     LOG_AT("[AT] -------- [%d]\r\n", hal_rtc_get_time());
-    xTaskCreate(at_reader_thread, "AT", 400, priv, 2, &priv->xTask);
+    xTaskCreate(at_reader_thread, "AT", 512, priv, 2, &priv->xTask);
 #endif
 
     return (struct at *) priv;

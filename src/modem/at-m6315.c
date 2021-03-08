@@ -145,8 +145,10 @@ static void handle_urc(const char *line, size_t len, void *arg)
             }
         } else if(id == 1) {
             char* p = strchr(line, ',');
-            while(p) {
+            if(p) {
                 p++;
+            }
+            while(p) {
                 if(sscanf(p, "%d,%d,%d,%*d,%*d,%*d,%d,%d,%x,%x", &id, &arfcn, &rssi, &mcc, &mnc, &lac, &cid) == 7) {
                     if(id < sizeof(modem->cells) / sizeof(*modem->cells)) {
                         cell_info_t* cell = &modem->cells[id];
@@ -167,6 +169,8 @@ static void handle_urc(const char *line, size_t len, void *arg)
                     p = strchr(p, ',');
                     if(!p) {
                         break;
+                    } else {
+                        p++;
                     }
                 }
             }

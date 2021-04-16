@@ -24,6 +24,7 @@ DBG_SET_LEVEL(DBG_LEVEL_I);
 #define WAITACK_TIMEOUT           24        // Retransmission mechanism: 1.5 + 3 + 6 + 12 = 22.5
 #define SGACT_TIMEOUT             (150 + 3) // According to the AT_Command_Manual
 #define TCP_CONNECT_TIMEOUT       40        // According to the AT_Command_Manual
+#define DNS_TIMEOUT               20        // According to the AT_Command_Manual
 #define PWROFF_TIMEOUT            (10 + 3)  // According to the AT_Command_Manual
 #define UE866_NSOCKETS             7        // According to the AT_Command_Manual
 
@@ -225,7 +226,7 @@ static int ue866_socket_connect(struct cellular *modem, const char *host, uint16
 
     int retries = 3;
     do {
-        at_set_timeout(modem->at, TCP_CONNECT_TIMEOUT + 3);
+        at_set_timeout(modem->at, TCP_CONNECT_TIMEOUT + DNS_TIMEOUT + 3);
         const char* response = at_command(modem->at, "AT#SD=%d,0,%d,\"%s\",0,0,1", connid, port, host);
         if(!response) {
             return -2;

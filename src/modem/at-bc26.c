@@ -689,7 +689,7 @@ static int bc26_socket_close(struct cellular *modem, int connid)
             at_set_timeout(modem->at, AT_TIMEOUT_LONG);
             at_command(modem->at, "AT+QLWCLOSE");
             at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
-            at_command_simple(modem->at, "AT+QLWDELOBJ=19");
+            at_command_simple(modem->at, "AT+QLWDEL");
         }
     } else if(connid < NUMBER_SOCKETS) {
         struct socket_info *info = &priv->sockets[connid];

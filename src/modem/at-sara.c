@@ -42,6 +42,13 @@ static const char *const sara_urc_responses[] = {
     NULL
 };
 
+static const char *const init_strings[] = {
+    "AT+CMEE=2",                    /* Enable extended error reporting. */
+    "AT+UMWI=0",                    /* Disable Message Waiting Indication. */
+    //"AT+CSGT=1,\"Ready\"",        /* Enable greeting message. */
+    NULL
+};
+
 struct cellular_sara {
     struct cellular dev;
     enum socket_status socket_status[SARA_NSOCKETS];
@@ -107,12 +114,6 @@ static int sara_attach(struct cellular *modem)
     at_command(modem->at, "AT+CGMR");
 
     /* Initialize modem. */
-    static const char *const init_strings[] = {
-        "AT+CMEE=2",                    /* Enable extended error reporting. */
-        "AT+UMWI=0",                    /* Disable Message Waiting Indication. */
-        //"AT+CSGT=1,\"Ready\"",        /* Enable greeting message. */
-        NULL
-    };
     for (const char *const *command=init_strings; *command; command++)
         at_command_simple(modem->at, "%s", *command);
 
@@ -168,6 +169,34 @@ static int sara_shutdown(struct cellular *modem)
 
     at_set_timeout(modem->at, PWROFF_TIMEOUT);
     at_command_simple(modem->at, "AT+CPWROFF");
+
+    return 0;
+}
+
+static int sara_op_reset(struct cellular *modem)
+{
+    // Reboot
+    at_set_timeout(modem->at, AT_TIMEOUT_LONG);
+    at_command(modem->at, "AT+CFUN=15");
+    at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+    for(int i = 0; i < 10; i++) {
+        const char* resp = at_command(modem->at, "ATE0");
+        if(resp && *resp == '\0') {
+            break;
+        }
+    }
+    if(at_command(modem->at, "ATE0") == NULL) {
+        return -2;
+    } else {
+        /* Delay 1 second to continue */
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+        /* Initialize modem. */
+        at_set_timeout(modem->at, AT_TIMEOUT_SHORT);
+        for (const char *const *command=init_strings; *command; command++) {
+            at_command_simple(modem->at, "%s", *command);
+        }
+    }
 
     return 0;
 }
@@ -370,6 +399,7 @@ static int sara_query(struct cellular *modem)
 }
 
 static const struct cellular_ops sara_ops = {
+    .reset = sara_op_reset,
     .attach = sara_attach,
     .detach = sara_detach,
 
